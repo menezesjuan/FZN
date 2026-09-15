@@ -1,0 +1,16 @@
+{
+  "name": "fzn-farm-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FZN - Jogo de Fazenda 2D com arquitetura autoritativa em Node.js e React",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "node scripts/dev.js",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "test": "npm --prefix server test"
+  },
+  "keywords": ["farm", "game", "react", "nodejs", "pixel-art"]
+}

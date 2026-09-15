@@ -1,0 +1,96 @@
+{
+  "items": {
+    "tool_hoe": {
+      "id": "tool_hoe",
+      "name": "Enxada de Trabalho",
+      "category": "tool",
+      "type": "hoe",
+      "description": "Prepara o solo para receber sementes.",
+      "energyCost": 2,
+      "icon": "hoe"
+    },
+    "tool_can": {
+      "id": "tool_can",
+      "name": "Regador de Cobre",
+      "category": "tool",
+      "type": "can",
+      "description": "Mantém as plantações hidratadas para que possam crescer.",
+      "energyCost": 1,
+      "icon": "watering_can"
+    },
+    "seeds_strawberry": {
+      "id": "seeds_strawberry",
+      "name": "Sementes de Morango",
+      "category": "seed",
+      "cropId": "strawberry",
+      "buyPrice": 25,
+      "sellPrice": 12,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "seeds_leek": {
+      "id": "seeds_leek",
+      "name": "Sementes de Alho-poró",
+      "category": "seed",
+      "cropId": "leek",
+      "buyPrice": 12,
+      "sellPrice": 6,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "seeds_potato": {
+      "id": "seeds_potato",
+      "name": "Sementes de Batata",
+      "category": "seed",
+      "cropId": "potato",
+      "buyPrice": 18,
+      "sellPrice": 9,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "seeds_onion": {
+      "id": "seeds_onion",
+      "name": "Sementes de Cebola",
+      "category": "seed",
+      "cropId": "onion",
+      "buyPrice": 10,
+      "sellPrice": 5,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "crop_strawberry": {
+      "id": "crop_strawberry",
+      "name": "Morango",
+      "category": "produce",
+      "cropId": "strawberry",
+      "baseSellPrice": 60,
+      "description": "Fruta colhida fresca da sua fazenda."
+    },
+    "crop_leek": {
+      "id": "crop_leek",
+      "name": "Alho-poró",
+      "category": "produce",
+      "cropId": "leek",
+      "baseSellPrice": 30,
+      "description": "Talo fresco colhido da sua fazenda."
+    },
+    "crop_potato": {
+      "id": "crop_potato",
+      "name": "Batata",
+      "category": "produce",
+      "cropId": "potato",
+      "baseSellPrice": 45,
+      "description": "Tubérculo colhido da sua fazenda."
+    },
+    "crop_onion": {
+      "id": "crop_onion",
+      "name": "Cebola",
+      "category": "produce",
+      "cropId": "onion",
+      "baseSellPrice": 24,
+      "description": "Cebola colhida da sua fazenda."
+    }
+  },
+  "qualities": {
+    "normal": { "name": "Normal", "multiplier": 1.0, "icon": null },
+    "silver": { "name": "Prata", "multiplier": 1.25, "icon": "star_silver" },
+    "gold": { "name": "Ouro", "multiplier": 1.5, "icon": "star_gold" },
+    "iridium": { "name": "Iridium", "multiplier": 2.0, "icon": "star_purple" }
+  }
+}

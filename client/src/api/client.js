@@ -1,0 +1,35 @@
+const API_BASE = '/api';
+
+async function request(endpoint, options = {}) {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Erro na comunicação com o servidor');
+    }
+    return data;
+  } catch (err) {
+    console.error(`[API Error] ${endpoint}:`, err.message);
+    throw err;
+  }
+}
+
+export const api = {
+  getState: () => request('/state'),
+  tillTile: (x, y) => request('/farm/till', { method: 'POST', body: JSON.stringify({ x, y }) }),
+  waterTile: (x, y) => request('/farm/water', { method: 'POST', body: JSON.stringify({ x, y }) }),
+  plantCrop: (x, y, seedId) => request('/farm/plant', { method: 'POST', body: JSON.stringify({ x, y, seedId }) }),
+  harvestCrop: (x, y) => request('/farm/harvest', { method: 'POST', body: JSON.stringify({ x, y }) }),
+  buyItem: (itemId, quantity = 1) => request('/shop/buy', { method: 'POST', body: JSON.stringify({ itemId, quantity }) }),
+  sellItem: (slotIndex, quantity = 1) => request('/shop/sell', { method: 'POST', body: JSON.stringify({ slotIndex, quantity }) }),
+  updatePlayerPosition: (x, y) => request('/player/move', { method: 'POST', body: JSON.stringify({ x, y }) }),
+  devAdvanceTime: (seconds = 60) => request('/dev/advance-time', { method: 'POST', body: JSON.stringify({ seconds }) }),
+  devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' })
+};
