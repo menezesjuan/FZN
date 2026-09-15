@@ -391,6 +391,79 @@ class SoundEngine {
     }, 120);
   }
 
+  // Warm, gentle cow moo
+  playMoo() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Fundamental moo tone
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(125, t);
+    osc1.frequency.linearRampToValueAtTime(135, t + 0.15);
+    osc1.frequency.exponentialRampToValueAtTime(95, t + 0.65);
+
+    // Formant filter to give "moo" vowel resonance
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(380, t);
+    filter.frequency.linearRampToValueAtTime(260, t + 0.65);
+
+    gain1.gain.setValueAtTime(0.01, t);
+    gain1.gain.linearRampToValueAtTime(0.28, t + 0.08);
+    gain1.gain.exponentialRampToValueAtTime(0.01, t + 0.7);
+
+    osc1.connect(filter);
+    filter.connect(gain1);
+    gain1.connect(this.ctx.destination);
+    osc1.start(t);
+    osc1.stop(t + 0.72);
+  }
+
+  // Milking stream squirting into metal bucket
+  playMilkSquirt() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    const doSquirt = (startTime, freq) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, startTime + 0.06);
+
+      gain.gain.setValueAtTime(0.22, startTime);
+      gain.gain.linearRampToValueAtTime(0.01, startTime + 0.07);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.08);
+
+      // Bucket metallic chime ping
+      const pingOsc = this.ctx.createOscillator();
+      const pingGain = this.ctx.createGain();
+      pingOsc.type = 'triangle';
+      pingOsc.frequency.setValueAtTime(880, startTime + 0.02);
+      pingGain.gain.setValueAtTime(0.12, startTime + 0.02);
+      pingGain.gain.exponentialRampToValueAtTime(0.005, startTime + 0.18);
+      pingOsc.connect(pingGain);
+      pingGain.connect(this.ctx.destination);
+      pingOsc.start(startTime + 0.02);
+      pingOsc.stop(startTime + 0.2);
+    };
+
+    doSquirt(t, 1100);
+    doSquirt(t + 0.09, 1250);
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

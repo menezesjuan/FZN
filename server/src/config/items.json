@@ -109,6 +109,22 @@
       "baseSellPrice": 8,
       "sellPrice": 8,
       "description": "Toras de madeira de alta qualidade obtidas do corte de árvores."
+    },
+    "tool_pail": {
+      "id": "tool_pail",
+      "name": "Balde de Ordenha",
+      "category": "tool",
+      "type": "pail",
+      "description": "Usado para ordenhar vacas leiteiras e recolher leite fresco.",
+      "energyCost": 2,
+      "icon": "milk_bucket"
+    },
+    "produce_milk": {
+      "id": "produce_milk",
+      "name": "Leite Fresco Caipira",
+      "category": "produce",
+      "baseSellPrice": 65,
+      "description": "Leite puro e cremoso, recém-ordenhado da vaca da fazenda."
     }
   },
   "qualities": {

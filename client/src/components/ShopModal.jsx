@@ -156,6 +156,7 @@ export default function ShopModal({
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ fontSize: '24px' }}>
                           {item.id === 'produce_egg' ? '🥚' :
+                           item.id === 'produce_milk' ? '🥛' :
                            item.id === 'material_wood' ? '🪵' :
                            item.id.includes('strawberry') ? '🍓' : 
                            item.id.includes('potato') ? '🥔' :

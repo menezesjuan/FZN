@@ -47,7 +47,9 @@ function getDefaultGameState() {
       animals: [
         { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
         { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
-        { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 }
+        { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 },
+        { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 },
+        { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15 }
       ],
       eggs: [
         { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
@@ -66,7 +68,8 @@ function getDefaultGameState() {
       { id: "tool_can", quantity: 1, quality: "normal", slot: 1 },
       { id: "seeds_strawberry", quantity: 4, quality: "normal", slot: 2 },
       { id: "seeds_potato", quantity: 4, quality: "normal", slot: 3 },
-      { id: "tool_axe", quantity: 1, quality: "normal", slot: 4 }
+      { id: "tool_axe", quantity: 1, quality: "normal", slot: 4 },
+      { id: "tool_pail", quantity: 1, quality: "normal", slot: 5 }
     ],
     time: {
       day: 1,
@@ -81,7 +84,8 @@ function getDefaultGameState() {
       tilesTilled: 0,
       eggsCollected: 0,
       treesChopped: 0,
-      woodGathered: 0
+      woodGathered: 0,
+      milkProduced: 0
     },
     lastSaved: Date.now()
   };
@@ -98,11 +102,13 @@ class StorageService {
         const raw = fs.readFileSync(SAVE_FILE, 'utf8');
         const state = JSON.parse(raw);
         if (!state.farm.animals) {
-          state.farm.animals = [
-            { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
-            { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
-            { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 }
-          ];
+          state.farm.animals = [];
+        }
+        if (!state.farm.animals.some(a => a.id === 'cow_1')) {
+          state.farm.animals.push(
+            { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 },
+            { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15 }
+          );
         }
         if (!state.farm.eggs) {
           state.farm.eggs = [
@@ -124,6 +130,12 @@ class StorageService {
           let freeSlot = 0;
           while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
           state.inventory.push({ id: 'tool_axe', quantity: 1, quality: 'normal', slot: freeSlot });
+        }
+        if (!state.inventory.find(i => i.id === 'tool_pail')) {
+          const usedSlots = new Set(state.inventory.map(i => i.slot));
+          let freeSlot = 0;
+          while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
+          state.inventory.push({ id: 'tool_pail', quantity: 1, quality: 'normal', slot: freeSlot });
         }
         if (!state.stats) {
           state.stats = {};

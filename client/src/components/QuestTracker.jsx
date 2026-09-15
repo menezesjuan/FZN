@@ -74,10 +74,17 @@ export default function QuestTracker({ gameState }) {
       progress: `${stats.woodGathered || 0}/3 madeiras coletadas`,
       percent: Math.min(100, Math.round(((stats.woodGathered || 0) / 3) * 100))
     };
+  } else if ((stats.milkProduced || 0) < 1) {
+    activeQuest = {
+      title: "9. Manejo Bovino e Ordenha",
+      description: "Vá até o pasto sul, selecione o Balde de Ordenha (6) e ordenhe a vaca Mimosa para obter leite fresco.",
+      progress: `${stats.milkProduced || 0}/1 leite ordenhado`,
+      percent: stats.milkProduced ? 100 : 0
+    };
   } else {
     activeQuest = {
-      title: "9. Expansão da Propriedade",
-      description: "Reinvista seus lucros em mais sementes, atinja o Nível 2 de Fazendeiro e acumule 300G.",
+      title: "10. Expansão da Propriedade",
+      description: "Venda suas mercadorias rurais, atinja o Nível 2 de Fazendeiro e acumule 300G.",
       progress: `${gameState.player?.money || 0}/300G`,
       percent: Math.min(100, Math.round(((gameState.player?.money || 0) / 300) * 100))
     };

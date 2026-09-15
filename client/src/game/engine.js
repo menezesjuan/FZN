@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -13,14 +13,18 @@ export class GameEngine {
     this.onInteractDoor = onInteractDoor;
     this.onCollectEgg = onCollectEgg;
     this.onChopTree = onChopTree;
+    this.onMilkCow = onMilkCow;
+    this.onPetAnimal = onPetAnimal;
     this.isNearDoor = false;
     this.treeShakes = {};
 
-    // Pasture animals (Chickens and chicks)
+    // Pasture animals (Chickens, chicks, and dairy cattle)
     this.animals = [
-      { id: 'chicken_1', type: 'adult', name: 'Gertrudes', x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, targetX: 20 * TILE_SIZE, targetY: 3 * TILE_SIZE, state: 'idle', stateTimer: 2, frame: 0, animTimer: 0, flipX: false },
-      { id: 'chick_1', type: 'chick', name: 'Piu-Piu', x: 19 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 1.5, frame: 0, animTimer: 0, flipX: false },
-      { id: 'chick_2', type: 'chick', name: 'Amarelinho', x: 21 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 21 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 2.2, frame: 0, animTimer: 0, flipX: true }
+      { id: 'chicken_1', type: 'adult', name: 'Gertrudes', x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, targetX: 20 * TILE_SIZE, targetY: 3 * TILE_SIZE, state: 'idle', stateTimer: 2, frame: 0, animTimer: 0, flipX: false, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
+      { id: 'chick_1', type: 'chick', name: 'Piu-Piu', x: 19 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 1.5, frame: 0, animTimer: 0, flipX: false, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
+      { id: 'chick_2', type: 'chick', name: 'Amarelinho', x: 21 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 21 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 2.2, frame: 0, animTimer: 0, flipX: true, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
+      { id: 'cow_1', type: 'female_cow', name: 'Mimosa', x: 19 * TILE_SIZE, y: 9 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 9 * TILE_SIZE, state: 'idle', stateTimer: 3, frame: 0, animTimer: 0, flipX: false, lastMilkedDay: 0, bounds: { minX: 18.2, maxX: 22.5, minY: 8.5, maxY: 11.5 } },
+      { id: 'cow_2', type: 'male_cow', name: 'Ferdinando', x: 21 * TILE_SIZE, y: 10 * TILE_SIZE, targetX: 21 * TILE_SIZE, targetY: 10 * TILE_SIZE, state: 'idle', stateTimer: 3.5, frame: 0, animTimer: 0, flipX: true, bounds: { minX: 18.2, maxX: 22.5, minY: 8.5, maxY: 11.5 } }
     ];
 
     this.images = {};
@@ -110,7 +114,9 @@ export class GameEngine {
       { key: 'fence', url: "/assets/Objects/Fence's%20copiar.png" },
       { key: 'road', url: '/assets/Objects/Road%20copiar.png' },
       { key: 'chicken', url: '/assets/Farm%20Animals/Baby%20Chicken%20Yellow.png' },
-      { key: 'chicken_adult', url: '/assets/Farm%20Animals/Chicken%20Blonde%20%20Green.png' }
+      { key: 'chicken_adult', url: '/assets/Farm%20Animals/Chicken%20Blonde%20%20Green.png' },
+      { key: 'cow_female', url: '/assets/Farm%20Animals/Female%20Cow%20Brown.png' },
+      { key: 'cow_male', url: '/assets/Farm%20Animals/Male%20Cow%20Brown.png' }
     ];
 
     const promises = assetList.map(({ key, url }) => {
@@ -216,23 +222,51 @@ export class GameEngine {
       }
     }
 
-    // Check if clicked on an animal (petting interaction)
+    // Check if clicked on an animal (milking or petting interaction)
     const clickedAnimal = this.animals.find(animal => {
-      const animalCenterX = animal.x + 8;
-      const animalCenterY = animal.y + 8;
-      return Math.hypot(animalCenterX - this.mouse.worldX, animalCenterY - this.mouse.worldY) < 14;
+      const isCow = animal.type === 'female_cow' || animal.type === 'male_cow';
+      const hitboxRadius = isCow ? 18 : 14;
+      const animalCenterX = animal.x + (isCow ? 16 : 8);
+      const animalCenterY = animal.y + (isCow ? 16 : 8);
+      return Math.hypot(animalCenterX - this.mouse.worldX, animalCenterY - this.mouse.worldY) < hitboxRadius;
     });
 
     if (clickedAnimal) {
-      const dist = Math.hypot(clickedAnimal.x + 8 - playerCenterX, clickedAnimal.y + 8 - playerCenterY) / TILE_SIZE;
+      const isCow = clickedAnimal.type === 'female_cow' || clickedAnimal.type === 'male_cow';
+      const animalCenterX = clickedAnimal.x + (isCow ? 16 : 8);
+      const animalCenterY = clickedAnimal.y + (isCow ? 16 : 8);
+      const dist = Math.hypot(animalCenterX - playerCenterX, animalCenterY - playerCenterY) / TILE_SIZE;
+
       if (dist <= 3.5) {
-        if (clickedAnimal.type === 'adult') {
-          audio.playCluck();
+        if (this.selectedTool && this.selectedTool.id === 'tool_pail') {
+          // Milking action
+          const cowTileX = Math.floor(animalCenterX / TILE_SIZE);
+          const cowTileY = Math.floor(animalCenterY / TILE_SIZE);
+          this.triggerToolAction(cowTileX, cowTileY);
+          if (this.onMilkCow) {
+            this.onMilkCow(clickedAnimal.id, cowTileX, cowTileY);
+          }
+          return;
         } else {
-          audio.playChirp();
+          // Petting action
+          if (isCow) {
+            audio.playMoo();
+          } else if (clickedAnimal.type === 'adult') {
+            audio.playCluck();
+          } else {
+            audio.playChirp();
+          }
+          this.addFloatingText("❤️", animalCenterX, clickedAnimal.y - 4, '#ff6b81');
+          this.addParticleBurst(animalCenterX, animalCenterY, '#f472b6', 7);
+          if (this.onPetAnimal) {
+            this.onPetAnimal(clickedAnimal.id);
+          }
+          return;
         }
-        this.addFloatingText("❤️", clickedAnimal.x + 8, clickedAnimal.y - 4, '#ff6b81');
-        this.addParticleBurst(clickedAnimal.x + 8, clickedAnimal.y + 4, '#f472b6', 6);
+      } else {
+        if (this.onShowToast) {
+          this.onShowToast(`Muito longe para interagir com ${clickedAnimal.name || 'o animal'}. Aproxime-se!`, "warning");
+        }
         return;
       }
     }
@@ -314,6 +348,32 @@ export class GameEngine {
         isStump: !!t.isStump,
         type: 'maple'
       }));
+    }
+    if (state.farm && state.farm.animals) {
+      state.farm.animals.forEach(serverAnimal => {
+        let local = this.animals.find(a => a.id === serverAnimal.id);
+        const isCow = serverAnimal.type === 'female_cow' || serverAnimal.type === 'male_cow';
+        if (!local) {
+          local = {
+            id: serverAnimal.id,
+            type: serverAnimal.type,
+            name: serverAnimal.name,
+            x: serverAnimal.x * TILE_SIZE,
+            y: serverAnimal.y * TILE_SIZE,
+            targetX: serverAnimal.x * TILE_SIZE,
+            targetY: serverAnimal.y * TILE_SIZE,
+            state: 'idle',
+            stateTimer: 2,
+            frame: 0,
+            animTimer: 0,
+            flipX: false,
+            bounds: isCow ? { minX: 18.2, maxX: 22.5, minY: 8.5, maxY: 11.5 } : { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 }
+          };
+          this.animals.push(local);
+        }
+        local.lastMilkedDay = serverAnimal.lastMilkedDay;
+        local.affection = serverAnimal.affection;
+      });
     }
     if (state.player && state.player.position && !this.initialSync) {
       this.player.x = state.player.position.x * TILE_SIZE;
@@ -441,6 +501,19 @@ export class GameEngine {
     const pastureBottomFence = { x: 20 * TILE_SIZE, y: 5 * TILE_SIZE, w: 3.5 * TILE_SIZE, h: 12 };
     if (intersects(box, pastureBottomFence)) return true;
 
+    // Cattle pasture fences (south-east meadow)
+    const cattleTopFence = { x: 19 * TILE_SIZE, y: 8 * TILE_SIZE, w: 4.5 * TILE_SIZE, h: 12 };
+    if (intersects(box, cattleTopFence)) return true;
+
+    const cattleRightFence = { x: 23 * TILE_SIZE, y: 8 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
+    if (intersects(box, cattleRightFence)) return true;
+
+    const cattleBottomFence = { x: 19 * TILE_SIZE, y: 12 * TILE_SIZE, w: 4.5 * TILE_SIZE, h: 12 };
+    if (intersects(box, cattleBottomFence)) return true;
+
+    const cattleLeftFence = { x: 18 * TILE_SIZE, y: 9 * TILE_SIZE, w: 12, h: 3.2 * TILE_SIZE };
+    if (intersects(box, cattleLeftFence)) return true;
+
     return false;
   }
 
@@ -452,6 +525,9 @@ export class GameEngine {
       animal.animTimer += dt;
       animal.stateTimer -= dt;
 
+      const isCow = animal.type === 'female_cow' || animal.type === 'male_cow';
+      const b = animal.bounds || (isCow ? { minX: 18.2, maxX: 22.5, minY: 8.5, maxY: 11.5 } : { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 });
+
       if (animal.state === 'walk') {
         const dx = animal.targetX - animal.x;
         const dy = animal.targetY - animal.y;
@@ -460,43 +536,49 @@ export class GameEngine {
         if (dist < 2 || animal.stateTimer <= 0) {
           animal.x = animal.targetX;
           animal.y = animal.targetY;
-          animal.state = Math.random() < 0.45 ? 'peck' : 'idle';
+          animal.state = isCow ? (Math.random() < 0.45 ? 'graze' : 'idle') : (Math.random() < 0.45 ? 'peck' : 'idle');
           animal.stateTimer = 1.5 + Math.random() * 2.5;
           animal.frame = 0;
         } else {
-          const moveSpeed = animal.type === 'adult' ? 18 : 24;
+          const moveSpeed = isCow ? 12 : (animal.type === 'adult' ? 18 : 24);
           const step = Math.min(dist, moveSpeed * dt);
           animal.x += (dx / dist) * step;
           animal.y += (dy / dist) * step;
           animal.flipX = dx < 0;
 
-          if (animal.animTimer >= 0.15) {
+          if (isCow) {
+            animal.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+          }
+
+          const animSpeed = isCow ? 0.22 : 0.15;
+          if (animal.animTimer >= animSpeed) {
             animal.animTimer = 0;
             animal.frame = (animal.frame + 1) % 4;
           }
         }
-      } else if (animal.state === 'peck') {
-        if (animal.animTimer >= 0.22) {
+      } else if (animal.state === 'peck' || animal.state === 'graze') {
+        const grazeSpeed = isCow ? 0.35 : 0.22;
+        if (animal.animTimer >= grazeSpeed) {
           animal.animTimer = 0;
           animal.frame = (animal.frame + 1) % 4;
         }
         if (animal.stateTimer <= 0) {
           animal.state = 'idle';
-          animal.stateTimer = 1.0 + Math.random() * 2.0;
+          animal.stateTimer = 1.2 + Math.random() * 2.2;
         }
       } else { // idle
-        if (animal.animTimer >= 0.4) {
+        const idleSpeed = isCow ? 0.6 : 0.4;
+        if (animal.animTimer >= idleSpeed) {
           animal.animTimer = 0;
           animal.frame = (animal.frame + 1) % 2;
         }
         if (animal.stateTimer <= 0) {
-          // Choose a new target within pasture [19.2 - 22.5] tiles X, [2.2 - 4.5] tiles Y
-          const targetTileX = 19.3 + Math.random() * 3.2;
-          const targetTileY = 2.2 + Math.random() * 2.4;
+          const targetTileX = b.minX + Math.random() * (b.maxX - b.minX);
+          const targetTileY = b.minY + Math.random() * (b.maxY - b.minY);
           animal.targetX = targetTileX * TILE_SIZE;
           animal.targetY = targetTileY * TILE_SIZE;
           animal.state = 'walk';
-          animal.stateTimer = 2.5 + Math.random() * 2.0;
+          animal.stateTimer = 3.0 + Math.random() * 2.5;
         }
       }
     }
@@ -745,6 +827,26 @@ export class GameEngine {
     for (let x = 20; x <= 23; x++) {
       ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 5 * TILE_SIZE, 16, 16);
     }
+
+    // Cattle pasture top fence (y=8, from x=19 to x=23)
+    for (let x = 19; x <= 23; x++) {
+      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 8 * TILE_SIZE, 16, 16);
+    }
+
+    // Cattle pasture right fence (x=23, from y=9 to y=11)
+    for (let y = 9; y <= 11; y++) {
+      ctx.drawImage(fenceImg, 16, 32, 16, 16, 23 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+    }
+
+    // Cattle pasture bottom fence (y=12, from x=19 to x=23)
+    for (let x = 19; x <= 23; x++) {
+      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 12 * TILE_SIZE, 16, 16);
+    }
+
+    // Cattle pasture left fence (x=18, from y=10 to y=12, leaves y=9 open as gate)
+    for (let y = 10; y <= 12; y++) {
+      ctx.drawImage(fenceImg, 16, 32, 16, 16, 18 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+    }
   }
 
   renderDepthSortedEntities(ctx) {
@@ -861,36 +963,81 @@ export class GameEngine {
       }
     }
 
-    // 5. Pasture Animals (Chickens and chicks)
+    // 5. Pasture Animals (Chickens, chicks, and dairy cattle)
     for (const animal of this.animals) {
+      const isCow = animal.type === 'female_cow' || animal.type === 'male_cow';
+      const sortY = animal.y + (isCow ? 28 : 14);
+
       entities.push({
-        sortY: animal.y + 14,
+        sortY,
         render: () => {
           // Drop shadow
           ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
           ctx.beginPath();
-          const shadowRx = animal.type === 'adult' ? 6 : 4;
-          const shadowRy = animal.type === 'adult' ? 2.5 : 2;
-          ctx.ellipse(animal.x + 8, animal.y + 13, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+          if (isCow) {
+            ctx.ellipse(animal.x + 16, animal.y + 26, 12, 4.5, 0, 0, Math.PI * 2);
+          } else {
+            const shadowRx = animal.type === 'adult' ? 6 : 4;
+            const shadowRy = animal.type === 'adult' ? 2.5 : 2;
+            ctx.ellipse(animal.x + 8, animal.y + 13, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+          }
           ctx.fill();
 
-          const img = animal.type === 'adult' ? this.images.chicken_adult : this.images.chicken;
-          if (!img) return;
+          if (isCow) {
+            const img = animal.type === 'female_cow' ? this.images.cow_female : this.images.cow_male;
+            if (!img) return;
 
-          // In chicken_adult (64x32), row 0 is 16x16 frames 0..3 (walk/peck)
-          // In chicken baby (64x48), row 0 is 16x16 frames 0..3 (walk/peck)
-          const srcX = (animal.frame % 4) * 16;
-          const srcY = 0;
+            let row = 0; // Down
+            if (animal.direction === 'up') row = 1;
+            else if (animal.direction === 'right' || animal.direction === 'left') row = 2;
 
-          ctx.save();
-          if (animal.flipX) {
-            ctx.translate(animal.x + 16, animal.y);
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, srcX, srcY, 16, 16, 0, 0, 16, 16);
+            const frame = animal.frame % 4;
+            const srcX = frame * 32;
+            const srcY = row * 32;
+
+            ctx.save();
+            if (animal.flipX) {
+              ctx.translate(animal.x + 32, animal.y);
+              ctx.scale(-1, 1);
+              ctx.drawImage(img, srcX, srcY, 32, 32, 0, 0, 32, 32);
+            } else {
+              ctx.drawImage(img, srcX, srcY, 32, 32, animal.x, animal.y, 32, 32);
+            }
+            ctx.restore();
+
+            // Ready to milk bubble indicator
+            const currentDay = this.gameState?.time?.day || 1;
+            if (animal.type === 'female_cow' && animal.lastMilkedDay !== currentDay) {
+              const bob = Math.sin(Date.now() / 240) * 2;
+              ctx.font = '8px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              ctx.beginPath();
+              ctx.arc(animal.x + 16, animal.y - 6 + bob, 6, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = '#64748b';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.fillText('🥛', animal.x + 16, animal.y - 3 + bob);
+            }
           } else {
-            ctx.drawImage(img, srcX, srcY, 16, 16, animal.x, animal.y, 16, 16);
+            // Chickens & chicks
+            const img = animal.type === 'adult' ? this.images.chicken_adult : this.images.chicken;
+            if (!img) return;
+
+            const srcX = (animal.frame % 4) * 16;
+            const srcY = 0;
+
+            ctx.save();
+            if (animal.flipX) {
+              ctx.translate(animal.x + 16, animal.y);
+              ctx.scale(-1, 1);
+              ctx.drawImage(img, srcX, srcY, 16, 16, 0, 0, 16, 16);
+            } else {
+              ctx.drawImage(img, srcX, srcY, 16, 16, animal.x, animal.y, 16, 16);
+            }
+            ctx.restore();
           }
-          ctx.restore();
         }
       });
     }

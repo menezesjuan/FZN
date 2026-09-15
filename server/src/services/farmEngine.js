@@ -491,6 +491,104 @@ class FarmEngine {
     };
   }
 
+  // Milk dairy cow
+  milkCow(cowId, tileX, tileY) {
+    if (this.state.player.energy < 2) {
+      throw new Error("Você está exausto demais para ordenhar! Descanse na casa da fazenda.");
+    }
+
+    const hasPail = this.state.inventory.some(i => i.id === 'tool_pail');
+    if (!hasPail) {
+      throw new Error("Você precisa de um Balde de Ordenha para tirar leite da vaca!");
+    }
+
+    if (!this.state.farm.animals) {
+      this.state.farm.animals = [];
+    }
+
+    let cow = null;
+    if (cowId) {
+      cow = this.state.farm.animals.find(a => a.id === cowId);
+    }
+    if (!cow && typeof tileX === 'number' && typeof tileY === 'number') {
+      cow = this.state.farm.animals.find(a => (a.type === 'female_cow' || a.type === 'male_cow') && Math.abs(a.x - tileX) <= 1.5 && Math.abs(a.y - tileY) <= 1.5);
+    }
+
+    if (!cow) {
+      throw new Error("Nenhum animal bovino encontrado nesta posição.");
+    }
+
+    if (cow.type === 'male_cow') {
+      throw new Error(`${cow.name || 'O animal'} é um touro! Apenas vacas leiteiras produzem leite.`);
+    }
+
+    const currentDay = this.state.time?.day || 1;
+    if (cow.lastMilkedDay === currentDay) {
+      throw new Error(`${cow.name || 'A vaca'} já foi ordenhada hoje! Aguarde até amanhã cedo.`);
+    }
+
+    // Deduct energy
+    this.state.player.energy = Math.max(0, this.state.player.energy - 2);
+
+    // Mark as milked today
+    cow.lastMilkedDay = currentDay;
+    cow.affection = (cow.affection || 10) + 5;
+
+    // Quality chance based on level and affection
+    const affectionBonus = ((cow.affection || 10) / 100) * 0.2;
+    const levelBonus = (this.state.player.level - 1) * 0.05;
+    const roll = Math.random();
+    let quality = 'normal';
+    if (roll < (0.10 + affectionBonus + levelBonus)) quality = 'gold';
+    else if (roll < (0.35 + affectionBonus + levelBonus)) quality = 'silver';
+
+    // Add milk to inventory
+    this.addItemToInventory('produce_milk', 1, quality);
+
+    // Give XP
+    const xpGained = 16;
+    this.addPlayerXP(xpGained);
+
+    this.state.stats.milkProduced = (this.state.stats.milkProduced || 0) + 1;
+    this.save();
+
+    return {
+      success: true,
+      milk: {
+        id: 'produce_milk',
+        name: 'Leite Fresco Caipira',
+        quantity: 1,
+        quality,
+        xpGained
+      },
+      cow,
+      player: this.state.player,
+      inventory: this.state.inventory
+    };
+  }
+
+  // Pet animal (hen, chick, cow, bull)
+  petAnimal(animalId) {
+    if (!this.state.farm.animals) return { success: false };
+    const animal = this.state.farm.animals.find(a => a.id === animalId);
+    if (!animal) return { success: false };
+
+    const currentDay = this.state.time?.day || 1;
+    let gainedAffection = false;
+    if (animal.lastPettedDay !== currentDay) {
+      animal.lastPettedDay = currentDay;
+      animal.affection = (animal.affection || 10) + 2;
+      gainedAffection = true;
+      this.save();
+    }
+
+    return {
+      success: true,
+      animal,
+      gainedAffection
+    };
+  }
+
   // Helper for fast dev/testing: advance crop time or reset
   advanceCropTime(seconds = 60) {
     const ms = seconds * 1000;

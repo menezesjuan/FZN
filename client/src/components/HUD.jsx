@@ -163,7 +163,9 @@ export default function HUD({
                   {item.id === 'tool_hoe' && <span style={{ fontSize: '20px' }}>⛏️</span>}
                   {item.id === 'tool_can' && <span style={{ fontSize: '20px' }}>🚰</span>}
                   {item.id === 'tool_axe' && <span style={{ fontSize: '20px' }}>🪓</span>}
+                  {item.id === 'tool_pail' && <span style={{ fontSize: '20px' }}>🪣</span>}
                   {item.id === 'produce_egg' && <span style={{ fontSize: '20px' }}>🥚</span>}
+                  {item.id === 'produce_milk' && <span style={{ fontSize: '20px' }}>🥛</span>}
                   {item.id === 'material_wood' && <span style={{ fontSize: '20px' }}>🪵</span>}
                   {item.id === 'seeds_strawberry' && <span style={{ fontSize: '20px' }}>🍓🌱</span>}
                   {item.id === 'seeds_leek' && <span style={{ fontSize: '20px' }}>🧅🌱</span>}

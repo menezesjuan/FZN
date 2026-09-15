@@ -9,6 +9,8 @@ export default function GameCanvas({
   onInteractDoor,
   onCollectEgg,
   onChopTree,
+  onMilkCow,
+  onPetAnimal,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -26,7 +28,7 @@ export default function GameCanvas({
     resize();
     window.addEventListener('resize', resize);
 
-    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree);
+    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal);
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 
@@ -64,8 +66,10 @@ export default function GameCanvas({
       localEngineRef.current.onInteractDoor = onInteractDoor;
       localEngineRef.current.onCollectEgg = onCollectEgg;
       localEngineRef.current.onChopTree = onChopTree;
+      localEngineRef.current.onMilkCow = onMilkCow;
+      localEngineRef.current.onPetAnimal = onPetAnimal;
     }
-  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree]);
+  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal]);
 
   // Synchronize game state with engine
   useEffect(() => {

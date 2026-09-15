@@ -29,6 +29,8 @@ export const api = {
   harvestCrop: (x, y) => request('/farm/harvest', { method: 'POST', body: JSON.stringify({ x, y }) }),
   collectEgg: (eggId, x, y) => request('/farm/collect-egg', { method: 'POST', body: JSON.stringify({ eggId, x, y }) }),
   chopTree: (treeId, x, y) => request('/farm/chop-tree', { method: 'POST', body: JSON.stringify({ treeId, x, y }) }),
+  milkCow: (cowId, x, y) => request('/farm/milk-cow', { method: 'POST', body: JSON.stringify({ cowId, x, y }) }),
+  petAnimal: (animalId) => request('/farm/pet-animal', { method: 'POST', body: JSON.stringify({ animalId }) }),
   buyItem: (itemId, quantity = 1) => request('/shop/buy', { method: 'POST', body: JSON.stringify({ itemId, quantity }) }),
   sellItem: (slotIndex, quantity = 1) => request('/shop/sell', { method: 'POST', body: JSON.stringify({ slotIndex, quantity }) }),
   updatePlayerPosition: (x, y) => request('/player/move', { method: 'POST', body: JSON.stringify({ x, y }) }),

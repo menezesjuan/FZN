@@ -186,4 +186,74 @@ test('FarmEngine: tree chopping, stump clearing and wood foraging', (t) => {
   assert.ok(state.player.money > moneyBefore);
 });
 
+test('FarmEngine: dairy cattle, petting and daily milking system', (t) => {
+  const state = farmEngine.getState();
+  state.player.energy = 50;
+
+  // Ensure tool_pail is in inventory
+  if (!state.inventory.find(i => i.id === 'tool_pail')) {
+    farmEngine.addItemToInventory('tool_pail', 1, 'normal');
+  }
+
+  // Ensure cows exist
+  let cow = state.farm.animals.find(a => a.type === 'female_cow');
+  let bull = state.farm.animals.find(a => a.type === 'male_cow');
+  if (!cow) {
+    cow = { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 };
+    state.farm.animals.push(cow);
+  }
+  if (!bull) {
+    bull = { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15 };
+    state.farm.animals.push(bull);
+  }
+
+  // Petting increases affection
+  const initialAffection = cow.affection || 10;
+  cow.lastPettedDay = -1; // Reset petted
+  const petRes = farmEngine.petAnimal(cow.id);
+  assert.strictEqual(petRes.success, true);
+  assert.ok(cow.affection > initialAffection);
+
+  // Cannot milk a bull!
+  assert.throws(() => {
+    farmEngine.milkCow(bull.id);
+  }, /touro/);
+
+  // Milk the cow
+  cow.lastMilkedDay = -1; // Ready to milk
+  const initialMilkStat = state.stats.milkProduced || 0;
+  const initialXP = state.player.xp;
+  const initialEnergy = state.player.energy;
+
+  const milkRes = farmEngine.milkCow(cow.id);
+  assert.strictEqual(milkRes.success, true);
+  assert.strictEqual(milkRes.milk.id, 'produce_milk');
+  assert.strictEqual(state.player.energy, initialEnergy - 2);
+  assert.ok(state.player.xp > initialXP);
+  assert.strictEqual(state.stats.milkProduced, initialMilkStat + 1);
+
+  // Inventory has fresh milk
+  const invMilk = state.inventory.find(i => i.id === 'produce_milk');
+  assert.ok(invMilk, 'Milk in inventory');
+  assert.ok(invMilk.quantity >= 1);
+
+  // Cannot milk twice on the same day
+  assert.throws(() => {
+    farmEngine.milkCow(cow.id);
+  }, /já foi ordenhada/);
+
+  // Sleep advances day and allows milking again
+  farmEngine.sleep();
+  const nextDayMilking = farmEngine.milkCow(cow.id);
+  assert.strictEqual(nextDayMilking.success, true);
+
+  // Can sell milk in shop
+  const milkToSell = state.inventory.find(i => i.id === 'produce_milk');
+  const moneyBefore = state.player.money;
+  const sellRes = economyEngine.sellItem(milkToSell.slot, 1);
+  assert.strictEqual(sellRes.success, true);
+  assert.ok(state.player.money > moneyBefore);
+});
+
+
 

@@ -100,6 +100,28 @@ router.post('/farm/chop-tree', (req, res) => {
   }
 });
 
+// Milk cow
+router.post('/farm/milk-cow', (req, res) => {
+  try {
+    const { cowId, x, y } = req.body;
+    const result = farmEngine.milkCow(cowId, x, y);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Pet animal
+router.post('/farm/pet-animal', (req, res) => {
+  try {
+    const { animalId } = req.body;
+    const result = farmEngine.petAnimal(animalId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Buy item
 router.post('/shop/buy', (req, res) => {
   try {

@@ -241,6 +241,39 @@ export default function App() {
     }
   };
 
+  // Milk cow handler
+  const handleMilkCow = async (cowId, tileX, tileY) => {
+    try {
+      const res = await api.milkCow(cowId, tileX, tileY);
+      if (res.success) {
+        audio.playMilkSquirt();
+        const worldX = tileX * 16 + 16;
+        const worldY = tileY * 16 + 16;
+
+        const qualityColor = res.milk.quality === 'gold' ? '#facc15' : 
+                             res.milk.quality === 'silver' ? '#e2e8f0' : '#ffffff';
+        if (engineRef.current) {
+          engineRef.current.addFloatingText(`+1x Leite Fresco!`, worldX, worldY, qualityColor);
+          engineRef.current.addFloatingText(`+${res.milk.xpGained} XP`, worldX, worldY - 12, '#38bdf8');
+          engineRef.current.addParticleBurst(worldX, worldY, '#ffffff', 14);
+        }
+        showToast(`Ordenha concluída! Obteve 1x ${res.milk.name} (${res.milk.quality})!`, 'success');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'warning');
+    }
+  };
+
+  // Pet animal handler
+  const handlePetAnimal = async (animalId) => {
+    try {
+      await api.petAnimal(animalId);
+    } catch (err) {
+      // Affection update in background
+    }
+  };
+
   // Buy item handler
   const handleBuy = async (itemId, quantity) => {
     try {
@@ -338,6 +371,8 @@ export default function App() {
         onInteractDoor={() => setIsSleepModalOpen(true)}
         onCollectEgg={handleCollectEgg}
         onChopTree={handleChopTree}
+        onMilkCow={handleMilkCow}
+        onPetAnimal={handlePetAnimal}
         engineRef={engineRef}
       />
 
