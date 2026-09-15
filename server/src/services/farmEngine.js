@@ -345,6 +345,19 @@ class FarmEngine {
       });
     }
 
+    // Small chance for a new tree to sprout overnight if farm has fewer than 6 trees
+    if (this.state.farm.trees && this.state.farm.trees.length < 6 && Math.random() < 0.4) {
+      const candidates = [
+        { id: `tree_${Date.now()}`, x: 2, y: 13, health: 3, maxHealth: 3, isStump: false },
+        { id: `tree_${Date.now()}`, x: 19, y: 13, health: 3, maxHealth: 3, isStump: false },
+        { id: `tree_${Date.now()}`, x: 1, y: 8, health: 3, maxHealth: 3, isStump: false }
+      ];
+      const newTree = candidates.find(c => !this.state.farm.trees.some(t => t.x === c.x && t.y === c.y));
+      if (newTree) {
+        this.state.farm.trees.push(newTree);
+      }
+    }
+
     this.save();
     return {
       success: true,
@@ -391,6 +404,90 @@ class FarmEngine {
       player: this.state.player,
       inventory: this.state.inventory,
       eggs: this.state.farm.eggs
+    };
+  }
+
+  // Chop tree on the farm with axe
+  chopTree(treeId, tileX, tileY) {
+    if (this.state.player.energy < 2) {
+      throw new Error("Você está exausto demais para cortar árvores! Descanse na casa da fazenda.");
+    }
+
+    const hasAxe = this.state.inventory.some(i => i.id === 'tool_axe');
+    if (!hasAxe) {
+      throw new Error("Você precisa de um machado para cortar árvores!");
+    }
+
+    if (!this.state.farm.trees) {
+      this.state.farm.trees = [];
+    }
+
+    let treeIndex = -1;
+    if (treeId) {
+      treeIndex = this.state.farm.trees.findIndex(t => t.id === treeId);
+    }
+    if (treeIndex === -1 && typeof tileX === 'number' && typeof tileY === 'number') {
+      treeIndex = this.state.farm.trees.findIndex(t => Math.abs(t.x - tileX) <= 1 && Math.abs(t.y - tileY) <= 1);
+    }
+
+    if (treeIndex === -1) {
+      throw new Error("Árvore não encontrada nesta posição.");
+    }
+
+    const tree = this.state.farm.trees[treeIndex];
+    if (tree.health === undefined) tree.health = 3;
+    if (tree.maxHealth === undefined) tree.maxHealth = 3;
+
+    // Deduct energy
+    this.state.player.energy = Math.max(0, this.state.player.energy - 2);
+
+    // Deal 1 hit of damage
+    tree.health -= 1;
+
+    let actionResult = 'hit';
+    let woodGained = 0;
+    let woodQuality = 'normal';
+    let xpGained = 0;
+
+    // Quality chance based on player level
+    const levelBonus = (this.state.player.level - 1) * 0.05;
+    const roll = Math.random();
+    if (roll < (0.10 + levelBonus)) woodQuality = 'gold';
+    else if (roll < (0.30 + levelBonus)) woodQuality = 'silver';
+
+    if (tree.health <= 0) {
+      if (!tree.isStump) {
+        // Tree fell down! Transforms into stump
+        tree.isStump = true;
+        tree.health = 2;
+        tree.maxHealth = 2;
+        woodGained = 3 + Math.floor(Math.random() * 2); // 3-4 wood
+        xpGained = 14;
+        actionResult = 'felled';
+      } else {
+        // Stump cleared completely
+        this.state.farm.trees.splice(treeIndex, 1);
+        woodGained = 2;
+        xpGained = 8;
+        actionResult = 'cleared';
+      }
+
+      this.addItemToInventory('material_wood', woodGained, woodQuality);
+      this.addPlayerXP(xpGained);
+      this.state.stats.treesChopped = (this.state.stats.treesChopped || 0) + 1;
+      this.state.stats.woodGathered = (this.state.stats.woodGathered || 0) + woodGained;
+    }
+
+    this.save();
+    return {
+      success: true,
+      actionResult,
+      tree: actionResult === 'cleared' ? null : tree,
+      wood: woodGained > 0 ? { quantity: woodGained, quality: woodQuality, name: 'Madeira Rústica' } : null,
+      xpGained,
+      player: this.state.player,
+      inventory: this.state.inventory,
+      trees: this.state.farm.trees
     };
   }
 

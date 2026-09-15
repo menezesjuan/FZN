@@ -51,13 +51,22 @@ function getDefaultGameState() {
       ],
       eggs: [
         { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
+      ],
+      trees: [
+        { id: "tree_1", x: 2, y: 2, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_2", x: 5, y: 1, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_3", x: 1, y: 8, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_4", x: 2, y: 13, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_5", x: 19, y: 13, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_6", x: 21, y: 7, health: 3, maxHealth: 3, isStump: false }
       ]
     },
     inventory: [
       { id: "tool_hoe", quantity: 1, quality: "normal", slot: 0 },
       { id: "tool_can", quantity: 1, quality: "normal", slot: 1 },
       { id: "seeds_strawberry", quantity: 4, quality: "normal", slot: 2 },
-      { id: "seeds_potato", quantity: 4, quality: "normal", slot: 3 }
+      { id: "seeds_potato", quantity: 4, quality: "normal", slot: 3 },
+      { id: "tool_axe", quantity: 1, quality: "normal", slot: 4 }
     ],
     time: {
       day: 1,
@@ -69,7 +78,10 @@ function getDefaultGameState() {
     stats: {
       cropsHarvested: 0,
       totalMoneyEarned: 0,
-      tilesTilled: 0
+      tilesTilled: 0,
+      eggsCollected: 0,
+      treesChopped: 0,
+      woodGathered: 0
     },
     lastSaved: Date.now()
   };
@@ -96,6 +108,25 @@ class StorageService {
           state.farm.eggs = [
             { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
           ];
+        }
+        if (!state.farm.trees) {
+          state.farm.trees = [
+            { id: "tree_1", x: 2, y: 2, health: 3, maxHealth: 3, isStump: false },
+            { id: "tree_2", x: 5, y: 1, health: 3, maxHealth: 3, isStump: false },
+            { id: "tree_3", x: 1, y: 8, health: 3, maxHealth: 3, isStump: false },
+            { id: "tree_4", x: 2, y: 13, health: 3, maxHealth: 3, isStump: false },
+            { id: "tree_5", x: 19, y: 13, health: 3, maxHealth: 3, isStump: false },
+            { id: "tree_6", x: 21, y: 7, health: 3, maxHealth: 3, isStump: false }
+          ];
+        }
+        if (!state.inventory.find(i => i.id === 'tool_axe')) {
+          const usedSlots = new Set(state.inventory.map(i => i.slot));
+          let freeSlot = 0;
+          while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
+          state.inventory.push({ id: 'tool_axe', quantity: 1, quality: 'normal', slot: freeSlot });
+        }
+        if (!state.stats) {
+          state.stats = {};
         }
         return state;
       }

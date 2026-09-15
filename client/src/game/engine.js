@@ -5,14 +5,16 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
     this.onShowToast = onShowToast;
     this.onInteractDoor = onInteractDoor;
     this.onCollectEgg = onCollectEgg;
+    this.onChopTree = onChopTree;
     this.isNearDoor = false;
+    this.treeShakes = {};
 
     // Pasture animals (Chickens and chicks)
     this.animals = [
@@ -235,6 +237,45 @@ export class GameEngine {
       }
     }
 
+    // Check if clicked on a tree or stump
+    const clickedTree = this.trees.find(tree => {
+      return (
+        this.mouse.worldX >= tree.x &&
+        this.mouse.worldX <= tree.x + 32 &&
+        this.mouse.worldY >= tree.y &&
+        this.mouse.worldY <= tree.y + 48
+      );
+    });
+
+    if (clickedTree) {
+      const treeCenterX = clickedTree.x + 16;
+      const treeCenterY = clickedTree.y + 36;
+      const dist = Math.hypot(treeCenterX - playerCenterX, treeCenterY - playerCenterY) / TILE_SIZE;
+
+      if (dist > 3.5) {
+        if (this.onShowToast) {
+          this.onShowToast("Muito longe da árvore! Aproxime-se do tronco.", "warning");
+        }
+        return;
+      }
+
+      if (this.selectedTool && this.selectedTool.id === 'tool_axe') {
+        const txTarget = clickedTree.tileX !== undefined ? clickedTree.tileX : Math.floor(clickedTree.x / TILE_SIZE);
+        const tyTarget = clickedTree.tileY !== undefined ? clickedTree.tileY : Math.floor(clickedTree.y / TILE_SIZE);
+        this.triggerToolAction(txTarget, tyTarget);
+        this.shakeTree(clickedTree.id);
+        if (this.onChopTree) {
+          this.onChopTree(clickedTree.id, txTarget, tyTarget);
+        }
+        return;
+      } else {
+        if (this.onShowToast) {
+          this.onShowToast("Equipe o Machadinho de Ferro para cortar a árvore.", "info");
+        }
+        return;
+      }
+    }
+
     // Check if clicked on farmhouse door
     if ((tx === 17 || tx === 18) && (ty === 5 || ty === 6)) {
       if (this.onInteractDoor) {
@@ -261,6 +302,19 @@ export class GameEngine {
 
   setGameState(state) {
     this.gameState = state;
+    if (state.farm && state.farm.trees) {
+      this.trees = state.farm.trees.map(t => ({
+        id: t.id,
+        x: t.x * TILE_SIZE,
+        y: t.y * TILE_SIZE,
+        tileX: t.x,
+        tileY: t.y,
+        health: t.health !== undefined ? t.health : 3,
+        maxHealth: t.maxHealth !== undefined ? t.maxHealth : 3,
+        isStump: !!t.isStump,
+        type: 'maple'
+      }));
+    }
     if (state.player && state.player.position && !this.initialSync) {
       this.player.x = state.player.position.x * TILE_SIZE;
       this.player.y = state.player.position.y * TILE_SIZE;
@@ -268,6 +322,10 @@ export class GameEngine {
       this.camera.y = this.player.y + 16;
       this.initialSync = true;
     }
+  }
+
+  shakeTree(treeId) {
+    this.treeShakes[treeId] = 0.22;
   }
 
   setSelectedTool(tool) {
@@ -560,6 +618,14 @@ export class GameEngine {
         this.particles.splice(i, 1);
       }
     }
+
+    // Update tree shake animations
+    for (const id in this.treeShakes) {
+      this.treeShakes[id] -= dt;
+      if (this.treeShakes[id] <= 0) {
+        delete this.treeShakes[id];
+      }
+    }
   }
 
   render() {
@@ -718,20 +784,38 @@ export class GameEngine {
       }
     });
 
-    // 3. Maple Trees
+    // 3. Maple Trees & Stumps
     for (const tree of this.trees) {
       entities.push({
         sortY: tree.y + 44, // Base of trunk
         render: () => {
-          // Soft oval shadow under tree canopy
+          const shakeRemaining = this.treeShakes[tree.id] || 0;
+          const shakeOffset = shakeRemaining > 0 ? Math.sin(shakeRemaining * 45) * 3 : 0;
+
+          // Soft oval shadow under tree or stump
           ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
           ctx.beginPath();
-          ctx.ellipse(tree.x + 16, tree.y + 44, 14, 5, 0, 0, Math.PI * 2);
+          if (tree.isStump) {
+            ctx.ellipse(tree.x + 16, tree.y + 44, 9, 3.5, 0, 0, Math.PI * 2);
+          } else {
+            ctx.ellipse(tree.x + 16, tree.y + 44, 14, 5, 0, 0, Math.PI * 2);
+          }
           ctx.fill();
 
           const treeImg = this.images.tree;
           if (treeImg) {
-            ctx.drawImage(treeImg, 96, 0, 32, 48, tree.x, tree.y, 32, 48);
+            const srcX = tree.isStump ? 128 : 96;
+            ctx.drawImage(treeImg, srcX, 0, 32, 48, tree.x + shakeOffset, tree.y, 32, 48);
+          }
+
+          // If damaged, display subtle crack lines on trunk
+          if (tree.health < (tree.maxHealth || 3)) {
+            ctx.strokeStyle = '#3e2723';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(tree.x + 14 + shakeOffset, tree.y + 36);
+            ctx.lineTo(tree.x + 17 + shakeOffset, tree.y + 41);
+            ctx.stroke();
           }
         }
       });

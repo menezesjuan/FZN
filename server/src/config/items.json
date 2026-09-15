@@ -92,6 +92,23 @@
       "category": "produce",
       "baseSellPrice": 35,
       "description": "Ovo fresco colhido diretamente do galinheiro da fazenda."
+    },
+    "tool_axe": {
+      "id": "tool_axe",
+      "name": "Machadinho de Ferro",
+      "category": "tool",
+      "type": "axe",
+      "description": "Usado para cortar árvores e recolher toras de madeira.",
+      "energyCost": 2,
+      "icon": "axe"
+    },
+    "material_wood": {
+      "id": "material_wood",
+      "name": "Madeira Rústica",
+      "category": "material",
+      "baseSellPrice": 8,
+      "sellPrice": 8,
+      "description": "Toras de madeira de alta qualidade obtidas do corte de árvores."
     }
   },
   "qualities": {

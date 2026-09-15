@@ -89,6 +89,17 @@ router.post('/farm/collect-egg', (req, res) => {
   }
 });
 
+// Chop tree on farm
+router.post('/farm/chop-tree', (req, res) => {
+  try {
+    const { treeId, x, y } = req.body;
+    const result = farmEngine.chopTree(treeId, x, y);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Buy item
 router.post('/shop/buy', (req, res) => {
   try {

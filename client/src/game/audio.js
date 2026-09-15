@@ -339,6 +339,58 @@ class SoundEngine {
     osc.stop(t + 0.1);
   }
 
+  // Chopping tree with axe
+  playChop() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Wood body resonance
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(75, t + 0.1);
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.linearRampToValueAtTime(0.01, t + 0.11);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.12);
+
+    // Axe blade impact crunch
+    this.playNoiseBuffer(0.07, 500, 0.28);
+  }
+
+  // Tree falling down & crashing to ground
+  playTreeFall() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Deep wood snap
+    const snapOsc = this.ctx.createOscillator();
+    const snapGain = this.ctx.createGain();
+    snapOsc.type = 'sawtooth';
+    snapOsc.frequency.setValueAtTime(220, t);
+    snapOsc.frequency.exponentialRampToValueAtTime(50, t + 0.22);
+    snapGain.gain.setValueAtTime(0.3, t);
+    snapGain.gain.linearRampToValueAtTime(0.01, t + 0.25);
+    snapOsc.connect(snapGain);
+    snapGain.connect(this.ctx.destination);
+    snapOsc.start(t);
+    snapOsc.stop(t + 0.26);
+
+    // Foliage rustle tumble
+    setTimeout(() => {
+      this.playNoiseBuffer(0.28, 350, 0.22);
+    }, 120);
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

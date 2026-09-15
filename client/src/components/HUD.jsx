@@ -162,6 +162,9 @@ export default function HUD({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   {item.id === 'tool_hoe' && <span style={{ fontSize: '20px' }}>⛏️</span>}
                   {item.id === 'tool_can' && <span style={{ fontSize: '20px' }}>🚰</span>}
+                  {item.id === 'tool_axe' && <span style={{ fontSize: '20px' }}>🪓</span>}
+                  {item.id === 'produce_egg' && <span style={{ fontSize: '20px' }}>🥚</span>}
+                  {item.id === 'material_wood' && <span style={{ fontSize: '20px' }}>🪵</span>}
                   {item.id === 'seeds_strawberry' && <span style={{ fontSize: '20px' }}>🍓🌱</span>}
                   {item.id === 'seeds_leek' && <span style={{ fontSize: '20px' }}>🧅🌱</span>}
                   {item.id === 'seeds_potato' && <span style={{ fontSize: '20px' }}>🥔🌱</span>}

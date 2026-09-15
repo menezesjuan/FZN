@@ -199,6 +199,48 @@ export default function App() {
     }
   };
 
+  // Chop tree handler with axe
+  const handleChopTree = async (treeId, tileX, tileY) => {
+    try {
+      const res = await api.chopTree(treeId, tileX, tileY);
+      if (res.success) {
+        const worldX = tileX * 16 + 16;
+        const worldY = tileY * 16 + 36;
+
+        if (res.actionResult === 'felled') {
+          audio.playTreeFall();
+          showToast(`Árvore derrubada! Coletou ${res.wood.quantity}x Madeira Rústica!`, 'success');
+          if (engineRef.current) {
+            const qualityColor = res.wood.quality === 'gold' ? '#facc15' : 
+                                 res.wood.quality === 'silver' ? '#e2e8f0' : '#d4a373';
+            engineRef.current.addFloatingText(`+${res.wood.quantity}x Madeira!`, worldX, worldY, qualityColor);
+            engineRef.current.addFloatingText(`+${res.xpGained} XP`, worldX, worldY - 12, '#38bdf8');
+            engineRef.current.addParticleBurst(worldX, worldY, '#8b5a2b', 14);
+            engineRef.current.addParticleBurst(worldX, worldY - 10, '#558b2f', 10);
+          }
+        } else if (res.actionResult === 'cleared') {
+          audio.playTreeFall();
+          showToast(`Toco removido! Coletou ${res.wood.quantity}x Madeira Rústica!`, 'success');
+          if (engineRef.current) {
+            engineRef.current.addFloatingText(`+${res.wood.quantity}x Madeira!`, worldX, worldY, '#d4a373');
+            engineRef.current.addFloatingText(`+${res.xpGained} XP`, worldX, worldY - 12, '#38bdf8');
+            engineRef.current.addParticleBurst(worldX, worldY, '#8b5a2b', 12);
+          }
+        } else {
+          // Regular hit
+          audio.playChop();
+          if (engineRef.current) {
+            engineRef.current.addParticleBurst(worldX, worldY, '#a16207', 7);
+            engineRef.current.addFloatingText('-2 ⚡', worldX, worldY - 8, '#f97316');
+          }
+        }
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'warning');
+    }
+  };
+
   // Buy item handler
   const handleBuy = async (itemId, quantity) => {
     try {
@@ -295,6 +337,7 @@ export default function App() {
         onShowToast={showToast}
         onInteractDoor={() => setIsSleepModalOpen(true)}
         onCollectEgg={handleCollectEgg}
+        onChopTree={handleChopTree}
         engineRef={engineRef}
       />
 

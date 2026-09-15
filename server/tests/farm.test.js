@@ -130,3 +130,60 @@ test('FarmEngine: livestock and egg collection system', (t) => {
   assert.ok(state.player.xp > initialXP);
 });
 
+test('FarmEngine: tree chopping, stump clearing and wood foraging', (t) => {
+  const state = farmEngine.getState();
+  state.player.energy = 50;
+
+  // Ensure axe is in inventory
+  if (!state.inventory.find(i => i.id === 'tool_axe')) {
+    farmEngine.addItemToInventory('tool_axe', 1, 'normal');
+  }
+
+  // Create a test tree
+  const testTreeId = 'tree_test_wood';
+  state.farm.trees = state.farm.trees.filter(tr => tr.id !== testTreeId);
+  state.farm.trees.push({ id: testTreeId, x: 2, y: 2, health: 3, maxHealth: 3, isStump: false });
+
+  const initialWoodInInv = state.inventory.find(i => i.id === 'material_wood')?.quantity || 0;
+  const initialEnergy = state.player.energy;
+
+  // Hit 1: damage tree
+  const hit1 = farmEngine.chopTree(testTreeId);
+  assert.strictEqual(hit1.success, true);
+  assert.strictEqual(hit1.actionResult, 'hit');
+  assert.strictEqual(hit1.tree.health, 2);
+  assert.strictEqual(state.player.energy, initialEnergy - 2);
+
+  // Hit 2: damage tree
+  const hit2 = farmEngine.chopTree(testTreeId);
+  assert.strictEqual(hit2.success, true);
+  assert.strictEqual(hit2.actionResult, 'hit');
+  assert.strictEqual(hit2.tree.health, 1);
+
+  // Hit 3: tree falls, turns into stump, drops wood
+  const hit3 = farmEngine.chopTree(testTreeId);
+  assert.strictEqual(hit3.success, true);
+  assert.strictEqual(hit3.actionResult, 'felled');
+  assert.strictEqual(hit3.tree.isStump, true);
+  assert.ok(hit3.wood.quantity >= 3);
+
+  const woodAfterFell = state.inventory.find(i => i.id === 'material_wood')?.quantity || 0;
+  assert.ok(woodAfterFell > initialWoodInInv);
+
+  // Hit 4 & 5: chop the stump
+  farmEngine.chopTree(testTreeId);
+  const clearStump = farmEngine.chopTree(testTreeId);
+  assert.strictEqual(clearStump.success, true);
+  assert.strictEqual(clearStump.actionResult, 'cleared');
+  assert.strictEqual(state.farm.trees.find(tr => tr.id === testTreeId), undefined);
+
+  // Can sell wood
+  const woodItem = state.inventory.find(i => i.id === 'material_wood');
+  assert.ok(woodItem);
+  const moneyBefore = state.player.money;
+  const sellWoodRes = economyEngine.sellItem(woodItem.slot, 1);
+  assert.strictEqual(sellWoodRes.success, true);
+  assert.ok(state.player.money > moneyBefore);
+});
+
+

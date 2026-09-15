@@ -67,9 +67,16 @@ export default function QuestTracker({ gameState }) {
       progress: `${moneyEarned}/60G arrecadados`,
       percent: Math.min(100, Math.round((moneyEarned / 60) * 100))
     };
+  } else if ((stats.woodGathered || 0) < 3) {
+    activeQuest = {
+      title: "8. Silvicultura e Coleta",
+      description: "Equipe o Machadinho de Ferro (5) e corte uma árvore na fazenda para coletar toras de madeira.",
+      progress: `${stats.woodGathered || 0}/3 madeiras coletadas`,
+      percent: Math.min(100, Math.round(((stats.woodGathered || 0) / 3) * 100))
+    };
   } else {
     activeQuest = {
-      title: "8. Expansão da Propriedade",
+      title: "9. Expansão da Propriedade",
       description: "Reinvista seus lucros em mais sementes, atinja o Nível 2 de Fazendeiro e acumule 300G.",
       progress: `${gameState.player?.money || 0}/300G`,
       percent: Math.min(100, Math.round(((gameState.player?.money || 0) / 300) * 100))
