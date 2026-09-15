@@ -255,5 +255,44 @@ test('FarmEngine: dairy cattle, petting and daily milking system', (t) => {
   assert.ok(state.player.money > moneyBefore);
 });
 
+test('FarmEngine: player location transition and farmhouse interior exploration', (t) => {
+  const state = farmEngine.getState();
 
+  // Initial location should be 'farm' or valid
+  assert.ok(['farm', 'house_interior'].includes(state.player.location));
 
+  // Transition to house interior
+  const insideRes = farmEngine.transitionLocation('house_interior');
+  assert.strictEqual(insideRes.success, true);
+  assert.strictEqual(insideRes.location, 'house_interior');
+  assert.strictEqual(farmEngine.getState().player.location, 'house_interior');
+  assert.strictEqual(farmEngine.getState().player.position.x, 5.5);
+  assert.strictEqual(farmEngine.getState().player.position.y, 7);
+
+  // Transition to custom coordinates inside
+  const customCoordRes = farmEngine.transitionLocation('house_interior', 3, 3);
+  assert.strictEqual(customCoordRes.success, true);
+  assert.strictEqual(farmEngine.getState().player.position.x, 3);
+  assert.strictEqual(farmEngine.getState().player.position.y, 3);
+
+  // Rejects invalid destination
+  assert.throws(() => {
+    farmEngine.transitionLocation('secret_dimension');
+  }, /inválido/);
+
+  // Sleeping in house interior restores energy and advances day
+  farmEngine.getState().player.energy = 5;
+  const dayBefore = farmEngine.getState().time.day;
+  const sleepRes = farmEngine.sleep();
+  assert.strictEqual(sleepRes.success, true);
+  assert.strictEqual(farmEngine.getState().time.day, dayBefore + 1);
+  assert.strictEqual(farmEngine.getState().player.energy, farmEngine.getState().player.maxEnergy);
+
+  // Transition back to farm
+  const farmRes = farmEngine.transitionLocation('farm');
+  assert.strictEqual(farmRes.success, true);
+  assert.strictEqual(farmRes.location, 'farm');
+  assert.strictEqual(farmEngine.getState().player.location, 'farm');
+  assert.strictEqual(farmEngine.getState().player.position.x, 17.5);
+  assert.strictEqual(farmEngine.getState().player.position.y, 6);
+});

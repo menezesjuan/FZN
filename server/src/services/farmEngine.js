@@ -589,6 +589,31 @@ class FarmEngine {
     };
   }
 
+  // Transition player between farm outdoors and farmhouse interior
+  transitionLocation(location, x, y) {
+    if (location !== 'farm' && location !== 'house_interior') {
+      throw new Error("Destino de localização inválido.");
+    }
+
+    this.state.player.location = location;
+    if (x !== undefined && y !== undefined) {
+      this.state.player.position = { x, y };
+    } else {
+      if (location === 'house_interior') {
+        this.state.player.position = { x: 5.5, y: 7 };
+      } else {
+        this.state.player.position = { x: 17.5, y: 6 };
+      }
+    }
+
+    this.save();
+    return {
+      success: true,
+      location,
+      player: this.state.player
+    };
+  }
+
   // Helper for fast dev/testing: advance crop time or reset
   advanceCropTime(seconds = 60) {
     const ms = seconds * 1000;

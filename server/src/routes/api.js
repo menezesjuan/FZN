@@ -169,6 +169,17 @@ router.post('/player/sleep', (req, res) => {
   }
 });
 
+// Transition location (farm <-> house_interior)
+router.post('/player/transition-location', (req, res) => {
+  try {
+    const { location, x, y } = req.body;
+    const result = farmEngine.transitionLocation(location, x, y);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Dev helper: advance crop time
 router.post('/dev/advance-time', (req, res) => {
   try {

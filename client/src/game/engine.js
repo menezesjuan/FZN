@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -15,8 +15,14 @@ export class GameEngine {
     this.onChopTree = onChopTree;
     this.onMilkCow = onMilkCow;
     this.onPetAnimal = onPetAnimal;
+    this.onTransitionLocation = onTransitionLocation;
+    this.location = 'farm'; // 'farm' | 'house_interior'
     this.isNearDoor = false;
+    this.isNearBed = false;
+    this.isNearInteriorExit = false;
+    this.isTransitioning = false;
     this.treeShakes = {};
+    this.interiorEmbers = [];
 
     // Pasture animals (Chickens, chicks, and dairy cattle)
     this.animals = [
@@ -116,7 +122,8 @@ export class GameEngine {
       { key: 'chicken', url: '/assets/Farm%20Animals/Baby%20Chicken%20Yellow.png' },
       { key: 'chicken_adult', url: '/assets/Farm%20Animals/Chicken%20Blonde%20%20Green.png' },
       { key: 'cow_female', url: '/assets/Farm%20Animals/Female%20Cow%20Brown.png' },
-      { key: 'cow_male', url: '/assets/Farm%20Animals/Male%20Cow%20Brown.png' }
+      { key: 'cow_male', url: '/assets/Farm%20Animals/Male%20Cow%20Brown.png' },
+      { key: 'interior', url: '/assets/Objects/Interior.png' }
     ];
 
     const promises = assetList.map(({ key, url }) => {
@@ -155,9 +162,17 @@ export class GameEngine {
 
   handleKeyDown(e) {
     this.keys[e.code] = true;
-    if (e.code === 'KeyE' && this.isNearDoor) {
-      if (this.onInteractDoor) {
-        this.onInteractDoor();
+    if (e.code === 'KeyE') {
+      if (this.location === 'farm' && this.isNearDoor) {
+        this.transitionToLocation('house_interior');
+      } else if (this.location === 'house_interior') {
+        if (this.isNearBed) {
+          if (this.onInteractDoor) {
+            this.onInteractDoor();
+          }
+        } else if (this.isNearInteriorExit) {
+          this.transitionToLocation('farm');
+        }
       }
     }
   }
@@ -183,6 +198,49 @@ export class GameEngine {
     if (e.button !== 0) return; // Only left click
     if (!this.gameState) return;
 
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+
+    // Interior interactions
+    if (this.location === 'house_interior') {
+      // 1. Bed click interaction (x: 20 to 46, y: 30 to 70)
+      if (this.mouse.worldX >= 20 && this.mouse.worldX <= 46 && this.mouse.worldY >= 30 && this.mouse.worldY <= 70) {
+        const dist = Math.hypot(33 - playerCenterX, 50 - playerCenterY);
+        if (dist <= 38) {
+          if (this.onInteractDoor) this.onInteractDoor();
+        } else if (this.onShowToast) {
+          this.onShowToast("Aproxime-se da cama para descansar.", "info");
+        }
+        return;
+      }
+
+      // 2. Doorway exit click interaction (x: 84 to 108, y: 120 to 140)
+      if (this.mouse.worldX >= 84 && this.mouse.worldX <= 108 && this.mouse.worldY >= 120 && this.mouse.worldY <= 140) {
+        const dist = Math.hypot(96 - playerCenterX, 126 - playerCenterY);
+        if (dist <= 36) {
+          this.transitionToLocation('farm');
+        } else if (this.onShowToast) {
+          this.onShowToast("Aproxime-se da porta para sair.", "info");
+        }
+        return;
+      }
+
+      // 3. Fireplace warm crackle interaction (x: 138 to 168, y: 24 to 68)
+      if (this.mouse.worldX >= 138 && this.mouse.worldX <= 168 && this.mouse.worldY >= 24 && this.mouse.worldY <= 68) {
+        const dist = Math.hypot(153 - playerCenterX, 52 - playerCenterY);
+        if (dist <= 48) {
+          audio.playFireplaceCrackle();
+          this.addFloatingText("🔥 Lareira quentinha", 153, 30, '#f97316');
+          this.addParticleBurst(153, 52, '#f97316', 8);
+        } else if (this.onShowToast) {
+          this.onShowToast("Aproxime-se da lareira para se aquecer.", "info");
+        }
+        return;
+      }
+
+      return;
+    }
+
     const tx = this.mouse.tileX;
     const ty = this.mouse.tileY;
 
@@ -190,10 +248,6 @@ export class GameEngine {
     if (tx < 0 || tx >= this.gameState.farm.width || ty < 0 || ty >= this.gameState.farm.height) {
       return;
     }
-
-    // Distance check from player center
-    const playerCenterX = this.player.x + 16;
-    const playerCenterY = this.player.y + 24;
 
     // Check if clicked on an egg
     if (this.gameState.farm.eggs && this.gameState.farm.eggs.length > 0) {
@@ -312,10 +366,8 @@ export class GameEngine {
 
     // Check if clicked on farmhouse door
     if ((tx === 17 || tx === 18) && (ty === 5 || ty === 6)) {
-      if (this.onInteractDoor) {
-        this.onInteractDoor();
-        return;
-      }
+      this.transitionToLocation('house_interior');
+      return;
     }
 
     const tileCenterX = tx * TILE_SIZE + 8;
@@ -375,12 +427,50 @@ export class GameEngine {
         local.affection = serverAnimal.affection;
       });
     }
-    if (state.player && state.player.position && !this.initialSync) {
-      this.player.x = state.player.position.x * TILE_SIZE;
-      this.player.y = state.player.position.y * TILE_SIZE;
+    if (state.player && !this.initialSync) {
+      if (state.player.location) {
+        this.location = state.player.location;
+      }
+      if (state.player.position) {
+        this.player.x = state.player.position.x * TILE_SIZE;
+        this.player.y = state.player.position.y * TILE_SIZE;
+      }
+      if (this.location === 'house_interior') {
+        this.camera.x = 96;
+        this.camera.y = 72;
+      } else {
+        this.camera.x = this.player.x + 16;
+        this.camera.y = this.player.y + 16;
+      }
+      this.initialSync = true;
+    }
+  }
+
+  transitionToLocation(targetLocation) {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    if (this.onTransitionLocation) {
+      this.onTransitionLocation(targetLocation);
+    }
+  }
+
+  setLocation(newLocation, px, py, dir = 'down') {
+    this.location = newLocation;
+    this.player.x = px;
+    this.player.y = py;
+    this.player.direction = dir;
+    this.player.isMoving = false;
+    this.isNearDoor = false;
+    this.isNearBed = false;
+    this.isNearInteriorExit = false;
+    this.isTransitioning = false;
+
+    if (newLocation === 'house_interior') {
+      this.camera.x = 96;
+      this.camera.y = 72;
+    } else {
       this.camera.x = this.player.x + 16;
       this.camera.y = this.player.y + 16;
-      this.initialSync = true;
     }
   }
 
@@ -442,6 +532,46 @@ export class GameEngine {
   checkCollision(box) {
     if (!this.gameState) return false;
 
+    // Helper for AABB collision
+    const intersects = (a, b) => {
+      return a.x < b.x + b.w && a.x + a.w > b.x &&
+             a.y < b.y + b.h && a.y + a.h > b.y;
+    };
+
+    if (this.location === 'house_interior') {
+      // Room perimeter walls
+      if (box.x < 16) return true;
+      if (box.x + box.w > 176) return true;
+      if (box.y < 38) return true;
+
+      // Bottom wall (doorway is at x: 86 to 106)
+      const inDoorway = box.x >= 86 && (box.x + box.w) <= 106;
+      if (!inDoorway && (box.y + box.h > 130)) {
+        return true;
+      }
+
+      // Exit doorway threshold trigger
+      if (inDoorway && (box.y + box.h >= 134)) {
+        this.transitionToLocation('farm');
+        return true;
+      }
+
+      // Furniture collisions:
+      // 1. Bed (x: 24, y: 36, w: 18, h: 30)
+      if (intersects(box, { x: 24, y: 36, w: 18, h: 30 })) return true;
+
+      // 2. Nightstand (x: 44, y: 36, w: 16, h: 16)
+      if (intersects(box, { x: 44, y: 36, w: 16, h: 16 })) return true;
+
+      // 3. Dining Table (x: 84, y: 72, w: 24, h: 18)
+      if (intersects(box, { x: 84, y: 72, w: 24, h: 18 })) return true;
+
+      // 4. Brick Fireplace (x: 140, y: 36, w: 26, h: 28)
+      if (intersects(box, { x: 140, y: 36, w: 26, h: 28 })) return true;
+
+      return false;
+    }
+
     // 1. World map bounds (leaving 1 tile border for natural trees/fences)
     const minWorldX = 0.5 * TILE_SIZE;
     const maxWorldX = (this.gameState.farm.width - 1.5) * TILE_SIZE;
@@ -452,12 +582,6 @@ export class GameEngine {
         box.y < minWorldY || (box.y + box.h) > maxWorldY) {
       return true;
     }
-
-    // Helper for AABB collision
-    const intersects = (a, b) => {
-      return a.x < b.x + b.w && a.x + a.w > b.x &&
-             a.y < b.y + b.h && a.y + a.h > b.y;
-    };
 
     // 2. Farmhouse solid collision (Base walls with opening for front door)
     // House at x=14 * 16 = 224, y=1 * 16 = 16, w=72, h=96
@@ -520,8 +644,9 @@ export class GameEngine {
   update(dt) {
     if (!this.gameState) return;
 
-    // Pasture animals wandering & pecking AI
-    for (const animal of this.animals) {
+    // Pasture animals wandering & pecking AI (outdoors only)
+    if (this.location === 'farm') {
+      for (const animal of this.animals) {
       animal.animTimer += dt;
       animal.stateTimer -= dt;
 
@@ -582,6 +707,7 @@ export class GameEngine {
         }
       }
     }
+  }
 
     // Movement calculation
     let dx = 0;
@@ -658,23 +784,65 @@ export class GameEngine {
       this.player.actionTimer = Math.max(0, this.player.actionTimer - dt);
     }
 
-    // Camera smoothly follows player with bounds clamping
-    const targetCamX = this.player.x + 16;
-    const targetCamY = this.player.y + 16;
-    this.camera.x += (targetCamX - this.camera.x) * (dt * 7);
-    this.camera.y += (targetCamY - this.camera.y) * (dt * 7);
+    if (this.location === 'house_interior') {
+      // Camera locks smoothly to center of interior room
+      const targetCamX = 96;
+      const targetCamY = 72;
+      this.camera.x += (targetCamX - this.camera.x) * (dt * 10);
+      this.camera.y += (targetCamY - this.camera.y) * (dt * 10);
 
-    // Camera Clamping: prevent viewing outside farm
-    const worldWidth = this.gameState.farm.width * TILE_SIZE;
-    const worldHeight = this.gameState.farm.height * TILE_SIZE;
-    const halfViewW = (this.canvas.width / 2) / ZOOM;
-    const halfViewH = (this.canvas.height / 2) / ZOOM;
+      // Spawn and update interior embers from fireplace
+      if (Math.random() < 0.35) {
+        this.interiorEmbers.push({
+          x: 149 + Math.random() * 8,
+          y: 49,
+          vx: (Math.random() - 0.5) * 8,
+          vy: -14 - Math.random() * 18,
+          life: 0.6 + Math.random() * 0.4,
+          maxLife: 1.0,
+          color: Math.random() < 0.65 ? '#f97316' : '#facc15'
+        });
+      }
+      for (let i = this.interiorEmbers.length - 1; i >= 0; i--) {
+        const emb = this.interiorEmbers[i];
+        emb.life -= dt;
+        emb.x += emb.vx * dt;
+        emb.y += emb.vy * dt;
+        if (emb.life <= 0) {
+          this.interiorEmbers.splice(i, 1);
+        }
+      }
 
-    if (worldWidth > halfViewW * 2) {
-      this.camera.x = Math.max(halfViewW, Math.min(worldWidth - halfViewW, this.camera.x));
-    }
-    if (worldHeight > halfViewH * 2) {
-      this.camera.y = Math.max(halfViewH, Math.min(worldHeight - halfViewH, this.camera.y));
+      // Proximity checks inside
+      const playerCenterX = this.player.x + 16;
+      const playerCenterY = this.player.y + 24;
+      this.isNearBed = Math.hypot(33 - playerCenterX, 50 - playerCenterY) < 32;
+      this.isNearInteriorExit = Math.hypot(96 - playerCenterX, 126 - playerCenterY) < 24;
+    } else {
+      // Outdoor farm camera & clamping
+      const targetCamX = this.player.x + 16;
+      const targetCamY = this.player.y + 16;
+      this.camera.x += (targetCamX - this.camera.x) * (dt * 7);
+      this.camera.y += (targetCamY - this.camera.y) * (dt * 7);
+
+      const worldWidth = this.gameState.farm.width * TILE_SIZE;
+      const worldHeight = this.gameState.farm.height * TILE_SIZE;
+      const halfViewW = (this.canvas.width / 2) / ZOOM;
+      const halfViewH = (this.canvas.height / 2) / ZOOM;
+
+      if (worldWidth > halfViewW * 2) {
+        this.camera.x = Math.max(halfViewW, Math.min(worldWidth - halfViewW, this.camera.x));
+      }
+      if (worldHeight > halfViewH * 2) {
+        this.camera.y = Math.max(halfViewH, Math.min(worldHeight - halfViewH, this.camera.y));
+      }
+
+      // Outdoor door proximity
+      const doorX = this.house.x + 60;
+      const doorY = this.house.y + 74;
+      const playerCenterX = this.player.x + 16;
+      const playerCenterY = this.player.y + 24;
+      this.isNearDoor = Math.hypot(doorX - playerCenterX, doorY - playerCenterY) < 32;
     }
 
     // Update floating texts
@@ -715,9 +883,14 @@ export class GameEngine {
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    // Clear background with rich forest green
-    ctx.fillStyle = '#1e3819';
-    ctx.fillRect(0, 0, width, height);
+    // Clear background
+    if (this.location === 'house_interior') {
+      ctx.fillStyle = '#0a0d14'; // Dark ambient diorama frame for cozy room
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      ctx.fillStyle = '#1e3819';
+      ctx.fillRect(0, 0, width, height);
+    }
 
     ctx.save();
     // Center camera
@@ -728,26 +901,30 @@ export class GameEngine {
     // Turn off smoothing for crisp pixel art
     ctx.imageSmoothingEnabled = false;
 
-    // 1. Draw Farm Ground (Grass, Tilled soil, Watered highlight, Stone paths)
-    this.renderFarmGround(ctx);
+    if (this.location === 'house_interior') {
+      this.renderHouseInterior(ctx);
+    } else {
+      // 1. Draw Farm Ground (Grass, Tilled soil, Watered highlight, Stone paths)
+      this.renderFarmGround(ctx);
 
-    // 2. Draw Fences (Perimeter and decor)
-    this.renderFences(ctx);
+      // 2. Draw Fences (Perimeter and decor)
+      this.renderFences(ctx);
 
-    // 3. Draw Depth-Sorted Entities (Y-Sorting: Character, House, Trees, Chest, Crops)
-    this.renderDepthSortedEntities(ctx);
+      // 3. Draw Depth-Sorted Entities (Y-Sorting: Character, House, Trees, Chest, Crops)
+      this.renderDepthSortedEntities(ctx);
 
-    // 4. Draw Tile Selection Highlight
-    this.renderHoverTile(ctx);
+      // 4. Draw Tile Selection Highlight
+      this.renderHoverTile(ctx);
 
-    // 5. Draw Particles
-    this.renderParticles(ctx);
+      // 5. Draw Particles
+      this.renderParticles(ctx);
 
-    // 6. Draw Door Sleep Prompt
-    this.renderDoorPrompt(ctx);
+      // 6. Draw Door Sleep Prompt
+      this.renderDoorPrompt(ctx);
 
-    // 7. Draw Ambient Day/Night Lighting and Lantern Glow
-    this.renderLighting(ctx);
+      // 7. Draw Ambient Day/Night Lighting and Lantern Glow
+      this.renderLighting(ctx);
+    }
 
     // 8. Draw Floating Texts (on top for crisp readability)
     this.renderFloatingTexts(ctx);
@@ -1219,7 +1396,7 @@ export class GameEngine {
       ctx.font = '700 8px Rubik, sans-serif';
       ctx.textAlign = 'center';
 
-      const promptText = "[E] Descansar";
+      const promptText = "[E] Entrar na Casa";
       const metrics = ctx.measureText(promptText);
       const boxW = metrics.width + 10;
       const boxH = 13;
@@ -1315,6 +1492,283 @@ export class GameEngine {
       } else {
         ctx.restore();
       }
+    }
+  }
+
+  // --- Farmhouse Interior Rendering System ---
+
+  renderHouseInterior(ctx) {
+    const interior = this.images.interior;
+    if (!interior) return;
+
+    // 1. Room Floor Planks (x: 16 to 176, y: 38 to 134)
+    // Warm rich oak wooden planks with subtle texture
+    ctx.fillStyle = '#c5925b';
+    ctx.fillRect(16, 38, 160, 94);
+
+    // Plank seam lines
+    ctx.fillStyle = '#9e6d3a';
+    for (let py = 48; py <= 130; py += 10) {
+      ctx.fillRect(16, py, 160, 1);
+    }
+
+    // Staggered vertical seams
+    ctx.fillStyle = '#b5804c';
+    for (let py = 38; py < 130; py += 10) {
+      const offset = ((py - 38) / 10) % 2 === 0 ? 0 : 20;
+      for (let px = 16 + offset; px < 176; px += 40) {
+        ctx.fillRect(px, py, 1, 9);
+      }
+    }
+
+    // 2. Entrance Threshold & Doormat (doorway x: 86 to 106, y: 122 to 134)
+    ctx.fillStyle = '#78350f'; // dark timber frame
+    ctx.fillRect(86, 122, 20, 12);
+    ctx.fillStyle = '#d97706'; // cozy golden-brown welcome mat
+    ctx.fillRect(88, 124, 16, 8);
+    // Mat striped woven detail
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(89, 126, 14, 1);
+    ctx.fillRect(89, 129, 14, 1);
+
+    // 3. Walls
+    // Back wall: horizontal cream wood siding paneling (x: 16 to 176, y: 0 to 38)
+    ctx.fillStyle = '#e5cca8';
+    ctx.fillRect(16, 0, 160, 38);
+
+    // Panel stripes
+    ctx.fillStyle = '#bfa17c';
+    for (let wy = 8; wy <= 36; wy += 8) {
+      ctx.fillRect(16, wy, 160, 1);
+    }
+
+    // Ceiling beam / crown molding (y: 0 to 6)
+    ctx.fillStyle = '#543118';
+    ctx.fillRect(16, 0, 160, 6);
+    ctx.fillStyle = '#7c4a24';
+    ctx.fillRect(16, 4, 160, 2);
+
+    // Floor baseboard (y: 34 to 38)
+    ctx.fillStyle = '#543118';
+    ctx.fillRect(16, 34, 160, 4);
+
+    // Side walls: vertical timber pillar beams
+    // Left wall: x: 10 to 16, y: 0 to 134
+    ctx.fillStyle = '#543118';
+    ctx.fillRect(10, 0, 6, 134);
+    ctx.fillStyle = '#7c4a24';
+    ctx.fillRect(13, 0, 3, 134);
+
+    // Right wall: x: 176 to 182, y: 0 to 134
+    ctx.fillStyle = '#543118';
+    ctx.fillRect(176, 0, 6, 134);
+    ctx.fillStyle = '#7c4a24';
+    ctx.fillRect(176, 0, 3, 134);
+
+    // Bottom wall partitions (leaving door opening at x: 86 to 106)
+    ctx.fillStyle = '#543118';
+    ctx.fillRect(10, 130, 76, 6);
+    ctx.fillRect(106, 130, 76, 6);
+    ctx.fillStyle = '#7c4a24';
+    ctx.fillRect(10, 130, 76, 2);
+    ctx.fillRect(106, 130, 76, 2);
+
+    // 4. Back Wall Decor (always behind entities)
+    // Wall painting 1 (Botanical red flowers): sx: 18, sy: 1, sw: 12, sh: 15
+    ctx.drawImage(interior, 18, 1, 12, 15, 34, 12, 12, 15);
+
+    // Wall clock: sx: 1, sy: 18, sw: 13, sh: 13
+    ctx.drawImage(interior, 1, 18, 13, 13, 62, 14, 13, 13);
+
+    // Picture frame 2 (Sunrise over hills): sx: 18, sy: 18, sw: 13, sh: 13
+    ctx.drawImage(interior, 18, 18, 13, 13, 86, 14, 13, 13);
+
+    // Window with sky tint: sx: 1, sy: 48, sw: 14, sh: 16 at x: 116, y: 12
+    const hour = this.gameState?.time?.hour !== undefined ? this.gameState.time.hour : 6;
+    let windowSky = '#7dd3fc'; // Daylight clear sky
+    if (hour < 6 || hour >= 20) windowSky = '#0f172a'; // Night
+    else if (hour >= 6 && hour < 8) windowSky = '#fbcfe8'; // Dawn pink
+    else if (hour >= 17 && hour < 20) windowSky = '#fdba74'; // Sunset orange
+    ctx.fillStyle = windowSky;
+    ctx.fillRect(118, 14, 10, 12);
+    // Window frame
+    ctx.drawImage(interior, 1, 48, 14, 16, 116, 12, 14, 16);
+    // Curtains on both sides
+    ctx.drawImage(interior, 16, 47, 16, 17, 108, 11, 16, 17);
+    ctx.drawImage(interior, 32, 47, 16, 17, 122, 11, 16, 17);
+
+    // 5. Cozy Green Rug (under table & entities): sx: 0, sy: 82, sw: 48, sh: 30
+    ctx.drawImage(interior, 0, 82, 48, 30, 72, 66, 48, 30);
+
+    // 6. Depth-Sorted Interior Entities (Y-Sorting)
+    const entities = [];
+
+    // Bed: sx: 87, sy: 8, sw: 18, sh: 34 at x: 24, y: 32
+    entities.push({
+      y: 66,
+      render: () => {
+        ctx.drawImage(interior, 87, 8, 18, 34, 24, 32, 18, 34);
+      }
+    });
+
+    // Nightstand with green lamp
+    entities.push({
+      y: 52,
+      render: () => {
+        ctx.drawImage(interior, 112, 120, 16, 18, 44, 34, 16, 18);
+        ctx.drawImage(interior, 34, 0, 11, 16, 46.5, 20, 11, 16);
+      }
+    });
+
+    // Dining Table with Tablecloth & Red Tulips
+    entities.push({
+      y: 91,
+      render: () => {
+        ctx.drawImage(interior, 68, 120, 24, 23, 84, 68, 24, 23);
+        ctx.drawImage(interior, 4, 1, 8, 15, 92, 58, 8, 15);
+      }
+    });
+
+    // Left Chair: sx: 35, sy: 125, sw: 10, sh: 18 at x: 73, y: 70
+    entities.push({
+      y: 88,
+      render: () => {
+        ctx.drawImage(interior, 35, 125, 10, 18, 73, 70, 10, 18);
+      }
+    });
+
+    // Right Chair: sx: 51, sy: 125, sw: 10, sh: 18 at x: 109, y: 70
+    entities.push({
+      y: 88,
+      render: () => {
+        ctx.drawImage(interior, 51, 125, 10, 18, 109, 70, 10, 18);
+      }
+    });
+
+    // Brick Fireplace with Animated Flames
+    entities.push({
+      y: 66,
+      render: () => {
+        ctx.drawImage(interior, 115, 8, 26, 40, 140, 26, 26, 40);
+        this.renderFireplaceFlames(ctx, 146, 52);
+      }
+    });
+
+    // Player
+    entities.push({
+      y: this.player.y + 28,
+      render: () => {
+        this.renderPlayer(ctx);
+      }
+    });
+
+    // Sort and render all entities
+    entities.sort((a, b) => a.y - b.y);
+    for (const ent of entities) {
+      ent.render();
+    }
+
+    // 7. Fireplace Embers
+    this.renderInteriorEmbers(ctx);
+
+    // 8. Dynamic Radial Warm Hearth Light
+    this.renderInteriorLighting(ctx);
+
+    // 9. Floating Prompts (Bed & Exit)
+    this.renderInteriorPrompts(ctx);
+  }
+
+  renderFireplaceFlames(ctx, hearthX, hearthY) {
+    const time = Date.now() / 90;
+    // Inside hearth opening: 14px wide, 10px tall
+    // Firewood embers bed
+    ctx.fillStyle = '#7c2d12';
+    ctx.fillRect(hearthX + 2, hearthY + 8, 10, 2);
+
+    // Dancing flame tongues
+    const flameColors = ['#dc2626', '#ea580c', '#f59e0b', '#fef08a'];
+    for (let i = 0; i < 4; i++) {
+      const ox = i * 2.5 + Math.sin(time + i) * 1.2;
+      const flameH = 4 + Math.sin(time * 1.5 + i * 2) * 3;
+      ctx.fillStyle = flameColors[i];
+      ctx.beginPath();
+      ctx.arc(hearthX + 4 + ox, hearthY + 8 - flameH / 2, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  renderInteriorEmbers(ctx) {
+    for (const emb of this.interiorEmbers) {
+      ctx.fillStyle = emb.color;
+      ctx.globalAlpha = Math.max(0, emb.life / emb.maxLife);
+      ctx.fillRect(emb.x, emb.y, 1.5, 1.5);
+    }
+    ctx.globalAlpha = 1.0;
+  }
+
+  renderInteriorLighting(ctx) {
+    const hearthX = 153;
+    const hearthY = 54;
+    const flicker = Math.sin(Date.now() / 140) * 3 + Math.cos(Date.now() / 85) * 2;
+    const radius = 88 + flicker;
+
+    // Warm radial glow from the fireplace
+    const grad = ctx.createRadialGradient(hearthX, hearthY, 6, hearthX, hearthY, radius);
+    grad.addColorStop(0, 'rgba(255, 180, 50, 0.32)');
+    grad.addColorStop(0.4, 'rgba(255, 130, 20, 0.16)');
+    grad.addColorStop(0.8, 'rgba(230, 80, 10, 0.05)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 192, 144);
+    ctx.restore();
+
+    // Night dimming if late at night
+    const hour = this.gameState?.time?.hour !== undefined ? this.gameState.time.hour : 6;
+    if (hour >= 21 || hour < 5) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+      ctx.fillRect(16, 0, 160, 134);
+    }
+  }
+
+  renderInteriorPrompts(ctx) {
+    const bob = Math.sin(Date.now() / 250) * 2.5;
+    ctx.font = '700 8px Rubik, sans-serif';
+    ctx.textAlign = 'center';
+
+    // Bed prompt
+    if (this.isNearBed) {
+      const promptText = "[E] Dormir no Quarto";
+      const metrics = ctx.measureText(promptText);
+      const boxW = metrics.width + 10;
+      const boxH = 13;
+      const boxX = 33 - boxW / 2;
+      const boxY = 24 + bob;
+
+      ctx.fillStyle = '#543118';
+      ctx.fillRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+      ctx.fillStyle = '#f7e6c4';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.fillStyle = '#3b220c';
+      ctx.fillText(promptText, 33, boxY + 9);
+    }
+
+    // Exit prompt
+    if (this.isNearInteriorExit) {
+      const promptText = "[E] Sair para a Fazenda";
+      const metrics = ctx.measureText(promptText);
+      const boxW = metrics.width + 10;
+      const boxH = 13;
+      const boxX = 96 - boxW / 2;
+      const boxY = 110 + bob;
+
+      ctx.fillStyle = '#543118';
+      ctx.fillRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+      ctx.fillStyle = '#f7e6c4';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.fillStyle = '#3b220c';
+      ctx.fillText(promptText, 96, boxY + 9);
     }
   }
 }

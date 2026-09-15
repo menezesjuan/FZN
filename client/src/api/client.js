@@ -35,6 +35,7 @@ export const api = {
   sellItem: (slotIndex, quantity = 1) => request('/shop/sell', { method: 'POST', body: JSON.stringify({ slotIndex, quantity }) }),
   updatePlayerPosition: (x, y) => request('/player/move', { method: 'POST', body: JSON.stringify({ x, y }) }),
   sleep: () => request('/player/sleep', { method: 'POST' }),
+  transitionLocation: (location, x, y) => request('/player/transition-location', { method: 'POST', body: JSON.stringify({ location, x, y }) }),
   devAdvanceTime: (seconds = 60) => request('/dev/advance-time', { method: 'POST', body: JSON.stringify({ seconds }) }),
   devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' })
 };

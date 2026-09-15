@@ -464,6 +464,93 @@ class SoundEngine {
     doSquirt(t + 0.09, 1250);
   }
 
+  // Door opening: latch click and wooden creak
+  playDoorOpen() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Latch click
+    const clickOsc = this.ctx.createOscillator();
+    const clickGain = this.ctx.createGain();
+    clickOsc.type = 'triangle';
+    clickOsc.frequency.setValueAtTime(950, t);
+    clickOsc.frequency.exponentialRampToValueAtTime(320, t + 0.04);
+    clickGain.gain.setValueAtTime(0.2, t);
+    clickGain.gain.linearRampToValueAtTime(0.01, t + 0.04);
+    clickOsc.connect(clickGain);
+    clickGain.connect(this.ctx.destination);
+    clickOsc.start(t);
+    clickOsc.stop(t + 0.05);
+
+    // Wood creak
+    const creakOsc = this.ctx.createOscillator();
+    const creakGain = this.ctx.createGain();
+    creakOsc.type = 'sawtooth';
+    creakOsc.frequency.setValueAtTime(140, t + 0.04);
+    creakOsc.frequency.linearRampToValueAtTime(260, t + 0.18);
+    creakGain.gain.setValueAtTime(0.01, t + 0.04);
+    creakGain.gain.linearRampToValueAtTime(0.12, t + 0.10);
+    creakGain.gain.exponentialRampToValueAtTime(0.005, t + 0.22);
+    creakOsc.connect(creakGain);
+    creakGain.connect(this.ctx.destination);
+    creakOsc.start(t + 0.04);
+    creakOsc.stop(t + 0.23);
+  }
+
+  // Door closing: solid wood frame thud and latch snap
+  playDoorClose() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Solid low wood impact
+    const thudOsc = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    thudOsc.type = 'triangle';
+    thudOsc.frequency.setValueAtTime(160, t);
+    thudOsc.frequency.exponentialRampToValueAtTime(45, t + 0.15);
+    thudGain.gain.setValueAtTime(0.3, t);
+    thudGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    thudOsc.connect(thudGain);
+    thudGain.connect(this.ctx.destination);
+    thudOsc.start(t);
+    thudOsc.stop(t + 0.16);
+
+    // Latch snap
+    const snapOsc = this.ctx.createOscillator();
+    const snapGain = this.ctx.createGain();
+    snapOsc.type = 'square';
+    snapOsc.frequency.setValueAtTime(720, t + 0.02);
+    snapOsc.frequency.exponentialRampToValueAtTime(280, t + 0.07);
+    snapGain.gain.setValueAtTime(0.15, t + 0.02);
+    snapGain.gain.linearRampToValueAtTime(0.01, t + 0.07);
+    snapOsc.connect(snapGain);
+    snapGain.connect(this.ctx.destination);
+    snapOsc.start(t + 0.02);
+    snapOsc.stop(t + 0.08);
+  }
+
+  // Fireplace crackle: gentle micro pops of burning logs
+  playFireplaceCrackle() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const delay = i * 0.07 + Math.random() * 0.04;
+      setTimeout(() => {
+        if (this.muted || !this.ctx) return;
+        this.playNoiseBuffer(0.025, 1400 + Math.random() * 800, 0.12);
+      }, delay * 1000);
+    }
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

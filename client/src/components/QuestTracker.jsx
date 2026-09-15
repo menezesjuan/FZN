@@ -41,8 +41,8 @@ export default function QuestTracker({ gameState }) {
     };
   } else if (day === 1 && harvestedCount === 0) {
     activeQuest = {
-      title: "4. Passar a Noite",
-      description: "Aproxime-se da porta da casa da fazenda e descanse (tecla E) para avançar o dia e restaurar sua energia.",
+      title: "4. Aconchego do Lar",
+      description: "Entre na casa da fazenda (tecla E na porta), explore seu quarto rústico e descanse na cama quentinha para avançar o dia.",
       progress: `Dia atual: 1`,
       percent: 50
     };

@@ -38,7 +38,8 @@ function getDefaultGameState() {
       xp: 0,
       energy: 100,
       maxEnergy: 100,
-      position: { x: 10, y: 8 }
+      position: { x: 10, y: 8 },
+      location: 'farm'
     },
     farm: {
       width: farmWidth,
@@ -136,6 +137,9 @@ class StorageService {
           let freeSlot = 0;
           while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
           state.inventory.push({ id: 'tool_pail', quantity: 1, quality: 'normal', slot: freeSlot });
+        }
+        if (!state.player.location) {
+          state.player.location = 'farm';
         }
         if (!state.stats) {
           state.stats = {};

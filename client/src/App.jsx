@@ -324,6 +324,39 @@ export default function App() {
     }
   };
 
+  // Handle room transitions (farm <-> house_interior)
+  const handleTransitionLocation = async (targetLocation) => {
+    setIsFading(true);
+    if (targetLocation === 'house_interior') {
+      audio.playDoorOpen();
+    } else {
+      audio.playDoorClose();
+    }
+
+    setTimeout(async () => {
+      try {
+        if (targetLocation === 'house_interior') {
+          if (engineRef.current) {
+            engineRef.current.setLocation('house_interior', 92, 114, 'up');
+          }
+          await api.transitionLocation('house_interior', 5.5, 7);
+          showToast("Entrou na casa da fazenda. Que aconchego! 🏡", "info");
+        } else {
+          if (engineRef.current) {
+            engineRef.current.setLocation('farm', 280, 96, 'down');
+          }
+          await api.transitionLocation('farm', 17.5, 6);
+          showToast("Saiu para o ar fresco da fazenda! 🌾", "info");
+        }
+        await loadState();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setTimeout(() => setIsFading(false), 200);
+      }
+    }, 320);
+  };
+
   // Confirm sleep and pass to next day
   const handleConfirmSleep = async () => {
     setIsSleepModalOpen(false);
@@ -334,6 +367,9 @@ export default function App() {
       const res = await api.sleep();
       setTimeout(async () => {
         await loadState();
+        if (engineRef.current && engineRef.current.location === 'house_interior') {
+          engineRef.current.setLocation('house_interior', 48, 48, 'down');
+        }
         showToast(res.message || "Amanheceu um novo dia na sua fazenda! 🌅", 'success');
         setIsFading(false);
       }, 1000);
@@ -348,7 +384,7 @@ export default function App() {
       {/* Toast notifications */}
       <Toast message={toast.message} type={toast.type} />
 
-      {/* Screen Fade to Black Transition for Sleep */}
+      {/* Screen Fade to Black Transition for Sleep & Room Transitions */}
       <div style={{
         position: 'fixed',
         top: 0,
@@ -358,7 +394,7 @@ export default function App() {
         background: '#0a0a0a',
         opacity: isFading ? 1 : 0,
         pointerEvents: isFading ? 'all' : 'none',
-        transition: 'opacity 0.6s ease-in-out',
+        transition: 'opacity 0.3s ease-in-out',
         zIndex: 99
       }} />
 
@@ -373,6 +409,7 @@ export default function App() {
         onChopTree={handleChopTree}
         onMilkCow={handleMilkCow}
         onPetAnimal={handlePetAnimal}
+        onTransitionLocation={handleTransitionLocation}
         engineRef={engineRef}
       />
 
