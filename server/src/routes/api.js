@@ -115,6 +115,16 @@ router.post('/player/move', (req, res) => {
   }
 });
 
+// Sleep in farmhouse
+router.post('/player/sleep', (req, res) => {
+  try {
+    const result = farmEngine.sleep();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Dev helper: advance crop time
 router.post('/dev/advance-time', (req, res) => {
   try {

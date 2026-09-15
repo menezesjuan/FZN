@@ -5,11 +5,13 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
     this.onShowToast = onShowToast;
+    this.onInteractDoor = onInteractDoor;
+    this.isNearDoor = false;
 
     this.images = {};
     this.assetsLoaded = false;
@@ -136,6 +138,11 @@ export class GameEngine {
 
   handleKeyDown(e) {
     this.keys[e.code] = true;
+    if (e.code === 'KeyE' && this.isNearDoor) {
+      if (this.onInteractDoor) {
+        this.onInteractDoor();
+      }
+    }
   }
 
   handleKeyUp(e) {
@@ -165,6 +172,14 @@ export class GameEngine {
     // Check bounds
     if (tx < 0 || tx >= this.gameState.farm.width || ty < 0 || ty >= this.gameState.farm.height) {
       return;
+    }
+
+    // Check if clicked on farmhouse door
+    if ((tx === 17 || tx === 18) && (ty === 5 || ty === 6)) {
+      if (this.onInteractDoor) {
+        this.onInteractDoor();
+        return;
+      }
     }
 
     // Distance check from player center
@@ -456,7 +471,13 @@ export class GameEngine {
     // 5. Draw Particles
     this.renderParticles(ctx);
 
-    // 6. Draw Floating Texts
+    // 6. Draw Door Sleep Prompt
+    this.renderDoorPrompt(ctx);
+
+    // 7. Draw Ambient Day/Night Lighting and Lantern Glow
+    this.renderLighting(ctx);
+
+    // 8. Draw Floating Texts (on top for crisp readability)
     this.renderFloatingTexts(ctx);
 
     ctx.restore();
@@ -742,5 +763,119 @@ export class GameEngine {
       ctx.fillText(ft.text, ft.x, ft.y);
     }
     ctx.globalAlpha = 1.0;
+  }
+
+  renderDoorPrompt(ctx) {
+    if (!this.gameState) return;
+    // Farmhouse door position: x=17.5 * 16 = 280, y=5.5 * 16 = 88
+    const doorX = this.house.x + 60;
+    const doorY = this.house.y + 74;
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+    const dist = Math.hypot(doorX - playerCenterX, doorY - playerCenterY);
+
+    this.isNearDoor = dist < 32;
+    if (this.isNearDoor) {
+      const bob = Math.sin(Date.now() / 250) * 2.5;
+      ctx.font = '700 8px Rubik, sans-serif';
+      ctx.textAlign = 'center';
+
+      const promptText = "[E] Descansar";
+      const metrics = ctx.measureText(promptText);
+      const boxW = metrics.width + 10;
+      const boxH = 13;
+      const boxX = doorX - boxW / 2;
+      const boxY = doorY - 26 + bob;
+
+      // Drop shadow and background pill
+      ctx.fillStyle = '#543118';
+      ctx.fillRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+      ctx.fillStyle = '#f7e6c4';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+
+      // Text
+      ctx.fillStyle = '#3b220c';
+      ctx.fillText(promptText, doorX, boxY + 9);
+    }
+  }
+
+  renderLighting(ctx) {
+    if (!this.gameState || !this.gameState.time) return;
+    const hour = this.gameState.time.hour !== undefined ? this.gameState.time.hour : 6;
+    const minute = this.gameState.time.minute !== undefined ? this.gameState.time.minute : 0;
+    const totalMinutes = hour * 60 + minute;
+
+    let ambientColor = null;
+    let alpha = 0;
+    let isNight = false;
+
+    if (totalMinutes >= 330 && totalMinutes < 480) {
+      // Dawn (05:30 - 08:00): Soft morning rose/gold
+      const t = (totalMinutes - 330) / 150;
+      ambientColor = '255, 175, 70';
+      alpha = 0.22 * (1 - t);
+    } else if (totalMinutes >= 480 && totalMinutes < 1020) {
+      // Daylight (08:00 - 17:00): Clear and crisp
+      alpha = 0;
+    } else if (totalMinutes >= 1020 && totalMinutes < 1200) {
+      // Sunset / Golden Hour (17:00 - 20:00): Warm amber
+      const t = (totalMinutes - 1020) / 180;
+      ambientColor = '240, 115, 25';
+      alpha = 0.28 * t;
+    } else {
+      // Night (20:00 - 05:30): Midnight navy blue
+      ambientColor = '12, 18, 52';
+      alpha = 0.58;
+      isNight = true;
+    }
+
+    if (alpha > 0.02) {
+      const worldW = this.gameState.farm.width * TILE_SIZE;
+      const worldH = this.gameState.farm.height * TILE_SIZE;
+
+      ctx.save();
+      // Draw ambient day/night overlay
+      ctx.fillStyle = `rgba(${ambientColor}, ${alpha})`;
+      ctx.fillRect(0, 0, worldW, worldH);
+
+      // In dusk or night, draw glowing warm lantern light from house windows and player
+      if (isNight || alpha > 0.2) {
+        ctx.globalCompositeOperation = 'destination-out';
+
+        // 1. Lantern around player
+        const playerX = this.player.x + 16;
+        const playerY = this.player.y + 16;
+        const playerGrad = ctx.createRadialGradient(playerX, playerY, 4, playerX, playerY, 52);
+        playerGrad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+        playerGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
+        playerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = playerGrad;
+        ctx.beginPath();
+        ctx.arc(playerX, playerY, 52, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Warm light through house windows and door
+        const houseLightX = this.house.x + 40;
+        const houseLightY = this.house.y + 65;
+        const houseGrad = ctx.createRadialGradient(houseLightX, houseLightY, 6, houseLightX, houseLightY, 70);
+        houseGrad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+        houseGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0.5)');
+        houseGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = houseGrad;
+        ctx.beginPath();
+        ctx.arc(houseLightX, houseLightY, 70, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Cozy warm golden highlights on the windows and door
+        ctx.fillStyle = 'rgba(255, 220, 90, 0.4)';
+        ctx.fillRect(this.house.x + 22, this.house.y + 54, 14, 14); // lower window
+        ctx.fillRect(this.house.x + 44, this.house.y + 36, 12, 12); // upper window
+        ctx.fillRect(this.house.x + 58, this.house.y + 64, 12, 18); // doorway
+      } else {
+        ctx.restore();
+      }
+    }
   }
 }

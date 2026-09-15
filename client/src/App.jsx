@@ -3,6 +3,8 @@ import { api } from './api/client';
 import { audio } from './game/audio';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
+import QuestTracker from './components/QuestTracker';
+import SleepModal from './components/SleepModal';
 import InventoryModal from './components/InventoryModal';
 import ShopModal from './components/ShopModal';
 import Toast from './components/Toast';
@@ -16,6 +18,8 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
+  const [isFading, setIsFading] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
   const [toast, setToast] = useState({ message: '', type: 'info' });
 
@@ -222,10 +226,43 @@ export default function App() {
     }
   };
 
+  // Confirm sleep and pass to next day
+  const handleConfirmSleep = async () => {
+    setIsSleepModalOpen(false);
+    setIsFading(true);
+    audio.playSleepTransition();
+
+    try {
+      const res = await api.sleep();
+      setTimeout(async () => {
+        await loadState();
+        showToast(res.message || "Amanheceu um novo dia na sua fazenda! 🌅", 'success');
+        setIsFading(false);
+      }, 1000);
+    } catch (err) {
+      setIsFading(false);
+      showToast(err.message, 'error');
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
       <Toast message={toast.message} type={toast.type} />
+
+      {/* Screen Fade to Black Transition for Sleep */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: '#0a0a0a',
+        opacity: isFading ? 1 : 0,
+        pointerEvents: isFading ? 'all' : 'none',
+        transition: 'opacity 0.6s ease-in-out',
+        zIndex: 99
+      }} />
 
       {/* Main Game Canvas */}
       <GameCanvas
@@ -233,6 +270,7 @@ export default function App() {
         selectedSlot={selectedSlot}
         onTileInteract={handleTileInteract}
         onShowToast={showToast}
+        onInteractDoor={() => setIsSleepModalOpen(true)}
         engineRef={engineRef}
       />
 
@@ -250,6 +288,17 @@ export default function App() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         itemsConfig={itemsConfig}
+      />
+
+      {/* Dynamic Quest & Onboarding Guide */}
+      <QuestTracker gameState={gameState} />
+
+      {/* Sleep in Farmhouse Modal */}
+      <SleepModal
+        isOpen={isSleepModalOpen}
+        onClose={() => setIsSleepModalOpen(false)}
+        onConfirmSleep={handleConfirmSleep}
+        time={gameState?.time}
       />
 
       {/* Inventory Modal */}

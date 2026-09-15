@@ -6,6 +6,7 @@ export default function GameCanvas({
   selectedSlot, 
   onTileInteract, 
   onShowToast, 
+  onInteractDoor,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -23,7 +24,7 @@ export default function GameCanvas({
     resize();
     window.addEventListener('resize', resize);
 
-    const engine = new GameEngine(canvas, onTileInteract, onShowToast);
+    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor);
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 

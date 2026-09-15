@@ -76,3 +76,27 @@ test('EconomyEngine: seed purchasing and crop selling with quality multiplier', 
   assert.strictEqual(sellRes.sold.totalPrice, 90);
   assert.strictEqual(state.player.money, moneyBefore + 90);
 });
+
+test('FarmEngine: sleep and natural day transition', (t) => {
+  const state = farmEngine.getState();
+  const dayBefore = state.time.day;
+  state.player.energy = 10; // Low energy
+
+  // Till, plant and water a test tile
+  state.farm.tiles['3,3'].state = 'tilled';
+  state.farm.tiles['3,3'].crop = { id: 'strawberry', stage: 0, ready: false };
+  state.farm.tiles['3,3'].isWatered = true;
+
+  // Sleep
+  const sleepRes = farmEngine.sleep();
+  assert.strictEqual(sleepRes.success, true);
+  assert.strictEqual(sleepRes.time.day, dayBefore + 1);
+  assert.strictEqual(sleepRes.time.hour, 6);
+  assert.strictEqual(sleepRes.time.minute, 0);
+  assert.strictEqual(sleepRes.player.energy, sleepRes.player.maxEnergy);
+
+  // Watered crop advanced and soil is dry in the morning
+  const morningTile = farmEngine.getState().farm.tiles['3,3'];
+  assert.ok(morningTile.crop.stage > 0);
+  assert.strictEqual(morningTile.isWatered, false);
+});

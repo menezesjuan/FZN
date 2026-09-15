@@ -248,6 +248,50 @@ class SoundEngine {
     });
   }
 
+  // Soft overnight sleep lullaby & morning chime
+  playSleepTransition() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    // Gentle evening lullaby chords
+    const eveningNotes = [392.00, 329.63, 261.63]; // G4, E4, C4
+    eveningNotes.forEach((freq, idx) => {
+      const startTime = t + idx * 0.16;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.52);
+    });
+
+    // Fresh morning dawn bird/chime sparkle after fade
+    setTimeout(() => {
+      if (this.muted || !this.ctx) return;
+      const tDawn = this.ctx.currentTime;
+      const dawnNotes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      dawnNotes.forEach((freq, idx) => {
+        const startTime = tDawn + idx * 0.1;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.18, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.42);
+      });
+    }, 700);
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

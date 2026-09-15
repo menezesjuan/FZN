@@ -259,6 +259,85 @@ class FarmEngine {
     }
   }
 
+  // Advance in-game clock
+  advanceClock(minutes = 10) {
+    if (!this.state.time) {
+      this.state.time = { day: 1, season: "Primavera", year: 1, hour: 6, minute: 0 };
+    }
+    this.state.time.minute += minutes;
+    while (this.state.time.minute >= 60) {
+      this.state.time.minute -= 60;
+      this.state.time.hour += 1;
+    }
+    while (this.state.time.hour >= 24) {
+      this.state.time.hour -= 24;
+      this.state.time.day += 1;
+      if (this.state.time.day > 28) {
+        this.state.time.day = 1;
+        const seasons = ["Primavera", "Verão", "Outono", "Inverno"];
+        const curIdx = seasons.indexOf(this.state.time.season);
+        const nextIdx = (curIdx + 1) % seasons.length;
+        this.state.time.season = seasons[nextIdx];
+        if (nextIdx === 0) this.state.time.year += 1;
+      }
+    }
+    this.save();
+    return this.state.time;
+  }
+
+  // Sleep in the farmhouse: passes to next day 06:00, restores energy, advances watered crops
+  sleep() {
+    if (!this.state.time) {
+      this.state.time = { day: 1, season: "Primavera", year: 1, hour: 6, minute: 0 };
+    }
+
+    // Advance to next day
+    this.state.time.day += 1;
+    if (this.state.time.day > 28) {
+      this.state.time.day = 1;
+      const seasons = ["Primavera", "Verão", "Outono", "Inverno"];
+      const curIdx = seasons.indexOf(this.state.time.season);
+      const nextIdx = (curIdx + 1) % seasons.length;
+      this.state.time.season = seasons[nextIdx];
+      if (nextIdx === 0) this.state.time.year += 1;
+    }
+
+    this.state.time.hour = 6;
+    this.state.time.minute = 0;
+
+    // Full restore of energy
+    this.state.player.energy = this.state.player.maxEnergy;
+
+    // Grow crops that were watered yesterday
+    for (const key in this.state.farm.tiles) {
+      const tile = this.state.farm.tiles[key];
+      if (tile.crop) {
+        const cropDef = cropsConfig[tile.crop.id];
+        const maxStage = cropDef ? cropDef.stages - 1 : 5;
+
+        if (tile.isWatered) {
+          // Advance 1 to 2 stages on overnight rest
+          tile.crop.stage = Math.min(maxStage, tile.crop.stage + 2);
+          if (tile.crop.stage >= maxStage) {
+            tile.crop.ready = true;
+          }
+          tile.crop.currentStageStartedAt = Date.now();
+        }
+      }
+      // Soil dries in the morning
+      tile.isWatered = false;
+    }
+
+    this.save();
+    return {
+      success: true,
+      message: `Amanheceu o Dia ${this.state.time.day} da ${this.state.time.season}!`,
+      time: this.state.time,
+      player: this.state.player,
+      state: this.getState()
+    };
+  }
+
   // Helper for fast dev/testing: advance crop time or reset
   advanceCropTime(seconds = 60) {
     const ms = seconds * 1000;
@@ -268,6 +347,7 @@ class FarmEngine {
         tile.crop.currentStageStartedAt -= ms;
       }
     }
+    this.advanceClock(Math.max(5, Math.floor(seconds / 10)));
     this.updateGrowth();
     this.save();
     return this.getState();
