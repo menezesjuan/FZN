@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -16,10 +16,13 @@ export class GameEngine {
     this.onMilkCow = onMilkCow;
     this.onPetAnimal = onPetAnimal;
     this.onTransitionLocation = onTransitionLocation;
+    this.onOpenChest = onOpenChest;
     this.location = 'farm'; // 'farm' | 'house_interior'
     this.isNearDoor = false;
     this.isNearBed = false;
     this.isNearInteriorExit = false;
+    this.isNearChest = false;
+    this.isChestOpen = false;
     this.isTransitioning = false;
     this.treeShakes = {};
     this.interiorEmbers = [];
@@ -27,6 +30,7 @@ export class GameEngine {
     // Pasture animals (Chickens, chicks, and dairy cattle)
     this.animals = [
       { id: 'chicken_1', type: 'adult', name: 'Gertrudes', x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, targetX: 20 * TILE_SIZE, targetY: 3 * TILE_SIZE, state: 'idle', stateTimer: 2, frame: 0, animTimer: 0, flipX: false, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
+      { id: 'chicken_red_1', type: 'red_chicken', name: 'Penélope', x: 22 * TILE_SIZE, y: 3 * TILE_SIZE, targetX: 22 * TILE_SIZE, targetY: 3 * TILE_SIZE, state: 'idle', stateTimer: 2.5, frame: 0, animTimer: 0, flipX: false, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
       { id: 'chick_1', type: 'chick', name: 'Piu-Piu', x: 19 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 1.5, frame: 0, animTimer: 0, flipX: false, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
       { id: 'chick_2', type: 'chick', name: 'Amarelinho', x: 21 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 21 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 2.2, frame: 0, animTimer: 0, flipX: true, bounds: { minX: 19.2, maxX: 22.8, minY: 2.2, maxY: 4.8 } },
       { id: 'cow_1', type: 'female_cow', name: 'Mimosa', x: 19 * TILE_SIZE, y: 9 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 9 * TILE_SIZE, state: 'idle', stateTimer: 3, frame: 0, animTimer: 0, flipX: false, lastMilkedDay: 0, bounds: { minX: 18.2, maxX: 22.5, minY: 8.5, maxY: 11.5 } },
@@ -121,6 +125,7 @@ export class GameEngine {
       { key: 'road', url: '/assets/Objects/Road%20copiar.png' },
       { key: 'chicken', url: '/assets/Farm%20Animals/Baby%20Chicken%20Yellow.png' },
       { key: 'chicken_adult', url: '/assets/Farm%20Animals/Chicken%20Blonde%20%20Green.png' },
+      { key: 'chicken_red', url: '/assets/Farm%20Animals/Chicken%20Red.png' },
       { key: 'cow_female', url: '/assets/Farm%20Animals/Female%20Cow%20Brown.png' },
       { key: 'cow_male', url: '/assets/Farm%20Animals/Male%20Cow%20Brown.png' },
       { key: 'interior', url: '/assets/Objects/Interior.png' }
@@ -163,8 +168,12 @@ export class GameEngine {
   handleKeyDown(e) {
     this.keys[e.code] = true;
     if (e.code === 'KeyE') {
-      if (this.location === 'farm' && this.isNearDoor) {
-        this.transitionToLocation('house_interior');
+      if (this.location === 'farm') {
+        if (this.isNearChest) {
+          if (this.onOpenChest) this.onOpenChest();
+        } else if (this.isNearDoor) {
+          this.transitionToLocation('house_interior');
+        }
       } else if (this.location === 'house_interior') {
         if (this.isNearBed) {
           if (this.onInteractDoor) {
@@ -246,6 +255,18 @@ export class GameEngine {
 
     // Check bounds
     if (tx < 0 || tx >= this.gameState.farm.width || ty < 0 || ty >= this.gameState.farm.height) {
+      return;
+    }
+
+    // Check if clicked on storage chest (x: 13, y: 5)
+    if (this.mouse.worldX >= this.chest.x - 2 && this.mouse.worldX <= this.chest.x + 18 &&
+        this.mouse.worldY >= this.chest.y - 2 && this.mouse.worldY <= this.chest.y + 18) {
+      const dist = Math.hypot(this.chest.x + 8 - playerCenterX, this.chest.y + 8 - playerCenterY);
+      if (dist <= 42) {
+        if (this.onOpenChest) this.onOpenChest();
+      } else if (this.onShowToast) {
+        this.onShowToast("Muito longe do baú! Aproxime-se.", "warning");
+      }
       return;
     }
 
@@ -472,6 +493,10 @@ export class GameEngine {
       this.camera.x = this.player.x + 16;
       this.camera.y = this.player.y + 16;
     }
+  }
+
+  setChestOpen(isOpen) {
+    this.isChestOpen = !!isOpen;
   }
 
   shakeTree(treeId) {
@@ -843,6 +868,11 @@ export class GameEngine {
       const playerCenterX = this.player.x + 16;
       const playerCenterY = this.player.y + 24;
       this.isNearDoor = Math.hypot(doorX - playerCenterX, doorY - playerCenterY) < 32;
+
+      // Outdoor chest proximity
+      const chestCenterX = this.chest.x + 8;
+      const chestCenterY = this.chest.y + 8;
+      this.isNearChest = Math.hypot(chestCenterX - playerCenterX, chestCenterY - playerCenterY) < 32;
     }
 
     // Update floating texts
@@ -921,6 +951,9 @@ export class GameEngine {
 
       // 6. Draw Door Sleep Prompt
       this.renderDoorPrompt(ctx);
+
+      // 6.1 Draw Chest Prompt
+      this.renderChestPrompt(ctx);
 
       // 7. Draw Ambient Day/Night Lighting and Lantern Glow
       this.renderLighting(ctx);
@@ -1043,7 +1076,8 @@ export class GameEngine {
 
         const chestImg = this.images.chest;
         if (chestImg) {
-          ctx.drawImage(chestImg, 0, 0, 16, 16, this.chest.x, this.chest.y, 16, 16);
+          const sy = this.isChestOpen ? 16 : 0;
+          ctx.drawImage(chestImg, 8, sy, 16, 16, this.chest.x, this.chest.y, 16, 16);
         }
       }
     });
@@ -1199,7 +1233,7 @@ export class GameEngine {
             }
           } else {
             // Chickens & chicks
-            const img = animal.type === 'adult' ? this.images.chicken_adult : this.images.chicken;
+            const img = animal.type === 'red_chicken' ? this.images.chicken_red : (animal.type === 'adult' ? this.images.chicken_adult : this.images.chicken);
             if (!img) return;
 
             const srcX = (animal.frame % 4) * 16;
@@ -1412,6 +1446,39 @@ export class GameEngine {
       // Text
       ctx.fillStyle = '#3b220c';
       ctx.fillText(promptText, doorX, boxY + 9);
+    }
+  }
+
+  renderChestPrompt(ctx) {
+    if (!this.gameState || this.location === 'house_interior' || this.isChestOpen) return;
+    const chestCenterX = this.chest.x + 8;
+    const chestCenterY = this.chest.y + 8;
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+    const dist = Math.hypot(chestCenterX - playerCenterX, chestCenterY - playerCenterY);
+
+    this.isNearChest = dist < 32;
+    if (this.isNearChest) {
+      const bob = Math.sin(Date.now() / 250) * 2.5;
+      ctx.font = '700 8px Rubik, sans-serif';
+      ctx.textAlign = 'center';
+
+      const promptText = "[E] Abrir Baú";
+      const metrics = ctx.measureText(promptText);
+      const boxW = metrics.width + 10;
+      const boxH = 13;
+      const boxX = chestCenterX - boxW / 2;
+      const boxY = this.chest.y - 18 + bob;
+
+      // Drop shadow and background pill
+      ctx.fillStyle = '#543118';
+      ctx.fillRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+      ctx.fillStyle = '#f7e6c4';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+
+      // Text
+      ctx.fillStyle = '#3b220c';
+      ctx.fillText(promptText, chestCenterX, boxY + 9);
     }
   }
 

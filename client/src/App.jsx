@@ -7,6 +7,7 @@ import QuestTracker from './components/QuestTracker';
 import SleepModal from './components/SleepModal';
 import InventoryModal from './components/InventoryModal';
 import ShopModal from './components/ShopModal';
+import ChestModal from './components/ChestModal';
 import Toast from './components/Toast';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isChestOpen, setIsChestOpen] = useState(false);
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [isFading, setIsFading] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
@@ -80,6 +82,11 @@ export default function App() {
       } else if (e.key === 'Escape') {
         setIsInventoryOpen(false);
         setIsShopOpen(false);
+        setIsSleepModalOpen(false);
+        setIsChestOpen(prev => {
+          if (prev) audio.playChestClose();
+          return false;
+        });
       }
     }
 
@@ -379,6 +386,56 @@ export default function App() {
     }
   };
 
+  // Storage Chest Handlers
+  const handleOpenChest = useCallback(() => {
+    audio.playChestOpen();
+    setIsChestOpen(true);
+  }, []);
+
+  const handleCloseChest = useCallback(() => {
+    audio.playChestClose();
+    setIsChestOpen(false);
+  }, []);
+
+  const handleDepositToChest = async (inventorySlot, quantity) => {
+    try {
+      const res = await api.depositToChest(inventorySlot, quantity);
+      if (res.success) {
+        audio.playCoin();
+        showToast("Item guardado no baú!", "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleWithdrawFromChest = async (chestSlot, quantity) => {
+    try {
+      const res = await api.withdrawFromChest(chestSlot, quantity);
+      if (res.success) {
+        audio.playCoin();
+        showToast("Item retirado do baú!", "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleQuickStackChest = async () => {
+    try {
+      const res = await api.quickStackChest();
+      if (res.success) {
+        audio.playCoin();
+        showToast(res.message || "Itens agrupados no baú!", "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
@@ -405,6 +462,8 @@ export default function App() {
         onTileInteract={handleTileInteract}
         onShowToast={showToast}
         onInteractDoor={() => setIsSleepModalOpen(true)}
+        onOpenChest={handleOpenChest}
+        isChestOpen={isChestOpen}
         onCollectEgg={handleCollectEgg}
         onChopTree={handleChopTree}
         onMilkCow={handleMilkCow}
@@ -462,6 +521,18 @@ export default function App() {
         itemsConfig={itemsConfig}
         onBuy={handleBuy}
         onSell={handleSell}
+      />
+
+      {/* Rustic Storage Chest Modal */}
+      <ChestModal
+        isOpen={isChestOpen}
+        onClose={handleCloseChest}
+        chest={gameState?.farm?.chest || []}
+        inventory={gameState?.inventory || []}
+        itemsConfig={itemsConfig}
+        onDeposit={handleDepositToChest}
+        onWithdraw={handleWithdrawFromChest}
+        onQuickStack={handleQuickStackChest}
       />
     </div>
   );

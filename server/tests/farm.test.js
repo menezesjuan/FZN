@@ -144,7 +144,8 @@ test('FarmEngine: tree chopping, stump clearing and wood foraging', (t) => {
   state.farm.trees = state.farm.trees.filter(tr => tr.id !== testTreeId);
   state.farm.trees.push({ id: testTreeId, x: 2, y: 2, health: 3, maxHealth: 3, isStump: false });
 
-  const initialWoodInInv = state.inventory.find(i => i.id === 'material_wood')?.quantity || 0;
+  const getWoodTotal = (inv) => inv.filter(i => i.id === 'material_wood').reduce((sum, i) => sum + i.quantity, 0);
+  const initialWoodInInv = getWoodTotal(state.inventory);
   const initialEnergy = state.player.energy;
 
   // Hit 1: damage tree
@@ -167,7 +168,7 @@ test('FarmEngine: tree chopping, stump clearing and wood foraging', (t) => {
   assert.strictEqual(hit3.tree.isStump, true);
   assert.ok(hit3.wood.quantity >= 3);
 
-  const woodAfterFell = state.inventory.find(i => i.id === 'material_wood')?.quantity || 0;
+  const woodAfterFell = getWoodTotal(state.inventory);
   assert.ok(woodAfterFell > initialWoodInInv);
 
   // Hit 4 & 5: chop the stump
@@ -282,10 +283,10 @@ test('FarmEngine: player location transition and farmhouse interior exploration'
 
   // Sleeping in house interior restores energy and advances day
   farmEngine.getState().player.energy = 5;
-  const dayBefore = farmEngine.getState().time.day;
+  farmEngine.getState().time.day = 5;
   const sleepRes = farmEngine.sleep();
   assert.strictEqual(sleepRes.success, true);
-  assert.strictEqual(farmEngine.getState().time.day, dayBefore + 1);
+  assert.strictEqual(farmEngine.getState().time.day, 6);
   assert.strictEqual(farmEngine.getState().player.energy, farmEngine.getState().player.maxEnergy);
 
   // Transition back to farm
@@ -295,4 +296,73 @@ test('FarmEngine: player location transition and farmhouse interior exploration'
   assert.strictEqual(farmEngine.getState().player.location, 'farm');
   assert.strictEqual(farmEngine.getState().player.position.x, 17.5);
   assert.strictEqual(farmEngine.getState().player.position.y, 6);
+});
+
+test('FarmEngine: rustic storage chest deposit, withdraw, quick stacking and capacity limits', (t) => {
+  const state = farmEngine.getState();
+
+  // Verify red chicken Penelope exists in animals
+  const penelope = state.farm.animals.find(a => a.id === 'chicken_red_1');
+  assert.ok(penelope, 'Red Hen Penélope exists in farm animals');
+  assert.strictEqual(penelope.name, 'Penélope');
+  assert.strictEqual(penelope.type, 'red_chicken');
+
+  // Verify initial chest structure
+  assert.ok(Array.isArray(state.farm.chest), 'Farm has chest array');
+
+  // Clear chest and inventory for predictable test setup
+  state.farm.chest = [
+    { slot: 0, id: 'material_wood', quantity: 5, quality: 'normal' }
+  ];
+
+  // Give player wood in inventory slot 5
+  state.inventory = state.inventory.filter(i => i.id !== 'material_wood' && i.id !== 'seeds_turnip' && i.slot !== 5 && i.slot !== 6);
+  state.inventory.push({ slot: 5, id: 'material_wood', quantity: 10, quality: 'normal' });
+  state.inventory.push({ slot: 6, id: 'seeds_turnip', quantity: 3, quality: 'normal' });
+
+  // 1. Quick Stack: should move the 10 wood from inventory into slot 0 chest (since slot 0 has wood)
+  const quickStackRes = farmEngine.quickStackChest();
+  assert.strictEqual(quickStackRes.success, true);
+  assert.strictEqual(quickStackRes.stackedCount, 10);
+
+  const chestWood = state.farm.chest.find(c => c.slot === 0);
+  assert.ok(chestWood);
+  assert.strictEqual(chestWood.quantity, 15);
+  assert.strictEqual(state.inventory.find(i => i.id === 'material_wood'), undefined, 'Inventory wood was stacked into chest');
+
+  // 2. Deposit: deposit 2 seeds_turnip from inventory slot 6 into chest
+  const depRes = farmEngine.depositToChest(6, 2);
+  assert.strictEqual(depRes.success, true);
+  assert.strictEqual(state.inventory.find(i => i.slot === 6).quantity, 1);
+  const chestTurnip = state.farm.chest.find(c => c.id === 'seeds_turnip');
+  assert.ok(chestTurnip, 'Seeds deposited to chest');
+  assert.strictEqual(chestTurnip.quantity, 2);
+
+  // 3. Withdraw: withdraw 1 seeds_turnip back to inventory
+  const withRes = farmEngine.withdrawFromChest(chestTurnip.slot, 1);
+  assert.strictEqual(withRes.success, true);
+  assert.strictEqual(chestTurnip.quantity, 1);
+  const invTurnip = state.inventory.find(i => i.id === 'seeds_turnip');
+  assert.strictEqual(invTurnip.quantity, 2);
+
+  // 4. Capacity limit: fill chest up to 16 slots
+  state.farm.chest = [];
+  for (let i = 0; i < 16; i++) {
+    state.farm.chest.push({ slot: i, id: `test_item_${i}`, quantity: 1, quality: 'normal' });
+  }
+
+  // Clear slots 7 and 8 from inventory
+  state.inventory = state.inventory.filter(i => i.slot !== 7 && i.slot !== 8);
+
+  // Attempt to deposit a new distinct item should throw/fail
+  state.inventory.push({ slot: 7, id: 'item_overflow_test', quantity: 1, quality: 'normal' });
+  assert.throws(() => {
+    farmEngine.depositToChest(7, 1);
+  }, /cheio/i);
+
+  // But can deposit to stack an existing item even if 16 slots are full
+  state.inventory.push({ slot: 8, id: 'test_item_0', quantity: 2, quality: 'normal' });
+  const stackWhenFull = farmEngine.depositToChest(8, 2);
+  assert.strictEqual(stackWhenFull.success, true);
+  assert.strictEqual(state.farm.chest.find(c => c.slot === 0).quantity, 3);
 });

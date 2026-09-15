@@ -180,6 +180,38 @@ router.post('/player/transition-location', (req, res) => {
   }
 });
 
+// Storage Chest: Deposit item
+router.post('/chest/deposit', (req, res) => {
+  try {
+    const { inventorySlot, quantity, targetChestSlot } = req.body;
+    const result = farmEngine.depositToChest(inventorySlot, quantity, targetChestSlot);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Storage Chest: Withdraw item
+router.post('/chest/withdraw', (req, res) => {
+  try {
+    const { chestSlot, quantity, targetInventorySlot } = req.body;
+    const result = farmEngine.withdrawFromChest(chestSlot, quantity, targetInventorySlot);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Storage Chest: Quick Stack
+router.post('/chest/quick-stack', (req, res) => {
+  try {
+    const result = farmEngine.quickStackChest();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Dev helper: advance crop time
 router.post('/dev/advance-time', (req, res) => {
   try {

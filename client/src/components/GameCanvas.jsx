@@ -12,6 +12,8 @@ export default function GameCanvas({
   onMilkCow,
   onPetAnimal,
   onTransitionLocation,
+  onOpenChest,
+  isChestOpen,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -29,7 +31,7 @@ export default function GameCanvas({
     resize();
     window.addEventListener('resize', resize);
 
-    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation);
+    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest);
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 
@@ -70,8 +72,16 @@ export default function GameCanvas({
       localEngineRef.current.onMilkCow = onMilkCow;
       localEngineRef.current.onPetAnimal = onPetAnimal;
       localEngineRef.current.onTransitionLocation = onTransitionLocation;
+      localEngineRef.current.onOpenChest = onOpenChest;
     }
-  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation]);
+  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest]);
+
+  // Synchronize chest open animation state with engine
+  useEffect(() => {
+    if (localEngineRef.current) {
+      localEngineRef.current.setChestOpen(isChestOpen);
+    }
+  }, [isChestOpen]);
 
   // Synchronize game state with engine
   useEffect(() => {

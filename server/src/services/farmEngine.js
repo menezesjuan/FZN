@@ -614,6 +614,192 @@ class FarmEngine {
     };
   }
 
+  // Deposit item from player inventory into farm storage chest
+  depositToChest(inventorySlot, quantity = 1, targetChestSlot = null) {
+    if (!this.state.farm.chest) {
+      this.state.farm.chest = [];
+    }
+
+    const invItem = this.state.inventory.find(i => i.slot === inventorySlot);
+    if (!invItem) {
+      throw new Error("Item não encontrado no inventário.");
+    }
+
+    const depositQty = Math.max(1, Math.min(Number(quantity) || 1, invItem.quantity));
+    const itemQuality = invItem.quality || 'normal';
+
+    // If targetChestSlot is specified, try to place or stack there
+    let placed = false;
+    if (targetChestSlot !== null && targetChestSlot !== undefined && targetChestSlot >= 0 && targetChestSlot < 16) {
+      const existingInSlot = this.state.farm.chest.find(c => c.slot === targetChestSlot);
+      if (existingInSlot) {
+        if (existingInSlot.id === invItem.id && (existingInSlot.quality || 'normal') === itemQuality) {
+          existingInSlot.quantity += depositQty;
+          placed = true;
+        }
+      } else {
+        this.state.farm.chest.push({
+          id: invItem.id,
+          quantity: depositQty,
+          quality: itemQuality,
+          slot: targetChestSlot
+        });
+        placed = true;
+      }
+    }
+
+    // If not placed in targetChestSlot, stack with existing or find lowest free slot (0..15)
+    if (!placed) {
+      const matchingStack = this.state.farm.chest.find(c => c.id === invItem.id && (c.quality || 'normal') === itemQuality);
+      if (matchingStack) {
+        matchingStack.quantity += depositQty;
+        placed = true;
+      } else {
+        const usedSlots = new Set(this.state.farm.chest.map(c => c.slot));
+        let freeSlot = 0;
+        while (usedSlots.has(freeSlot) && freeSlot < 16) {
+          freeSlot++;
+        }
+        if (freeSlot >= 16) {
+          throw new Error("O baú está cheio! Capacidade máxima de 16 itens atingida.");
+        }
+        this.state.farm.chest.push({
+          id: invItem.id,
+          quantity: depositQty,
+          quality: itemQuality,
+          slot: freeSlot
+        });
+        placed = true;
+      }
+    }
+
+    // Deduct from inventory
+    if (invItem.quantity - depositQty <= 0) {
+      const idx = this.state.inventory.indexOf(invItem);
+      if (idx !== -1) {
+        this.state.inventory.splice(idx, 1);
+      }
+    } else {
+      invItem.quantity -= depositQty;
+    }
+
+    this.save();
+    return {
+      success: true,
+      deposited: { id: invItem.id, quantity: depositQty, quality: itemQuality },
+      chest: this.state.farm.chest,
+      inventory: this.state.inventory
+    };
+  }
+
+  // Withdraw item from chest into player inventory
+  withdrawFromChest(chestSlot, quantity = 1, targetInventorySlot = null) {
+    if (!this.state.farm.chest) {
+      this.state.farm.chest = [];
+    }
+
+    const chestItem = this.state.farm.chest.find(c => c.slot === chestSlot);
+    if (!chestItem) {
+      throw new Error("Item não encontrado no baú.");
+    }
+
+    const withdrawQty = Math.max(1, Math.min(Number(quantity) || 1, chestItem.quantity));
+    const itemQuality = chestItem.quality || 'normal';
+
+    // Verify inventory capacity
+    const matchingInvStack = this.state.inventory.find(i => i.id === chestItem.id && (i.quality || 'normal') === itemQuality);
+    const usedInvSlots = new Set(this.state.inventory.map(i => i.slot));
+    if (!matchingInvStack && usedInvSlots.size >= 24) {
+      throw new Error("Mochila cheia! Libere espaço no inventário antes de retirar.");
+    }
+
+    // Place into inventory
+    let placedInInv = false;
+    if (targetInventorySlot !== null && targetInventorySlot !== undefined && targetInventorySlot >= 0 && targetInventorySlot < 24) {
+      const existingInInvSlot = this.state.inventory.find(i => i.slot === targetInventorySlot);
+      if (existingInInvSlot) {
+        if (existingInInvSlot.id === chestItem.id && (existingInInvSlot.quality || 'normal') === itemQuality) {
+          existingInInvSlot.quantity += withdrawQty;
+          placedInInv = true;
+        }
+      } else {
+        this.state.inventory.push({
+          id: chestItem.id,
+          quantity: withdrawQty,
+          quality: itemQuality,
+          slot: targetInventorySlot
+        });
+        placedInInv = true;
+      }
+    }
+
+    if (!placedInInv) {
+      this.addItemToInventory(chestItem.id, withdrawQty, itemQuality);
+    }
+
+    // Deduct from chest
+    if (chestItem.quantity - withdrawQty <= 0) {
+      const idx = this.state.farm.chest.indexOf(chestItem);
+      if (idx !== -1) {
+        this.state.farm.chest.splice(idx, 1);
+      }
+    } else {
+      chestItem.quantity -= withdrawQty;
+    }
+
+    this.save();
+    return {
+      success: true,
+      withdrawn: { id: chestItem.id, quantity: withdrawQty, quality: itemQuality },
+      chest: this.state.farm.chest,
+      inventory: this.state.inventory
+    };
+  }
+
+  // Quick stack all matching items from player inventory into farm chest
+  quickStackChest() {
+    if (!this.state.farm.chest) {
+      this.state.farm.chest = [];
+    }
+
+    let stackedTotal = 0;
+    const itemsToTransfer = [];
+
+    for (const invItem of this.state.inventory) {
+      // Don't auto-deposit tools
+      if (invItem.id.startsWith('tool_')) continue;
+
+      const matchingChest = this.state.farm.chest.find(c => c.id === invItem.id && (c.quality || 'normal') === (invItem.quality || 'normal'));
+      if (matchingChest) {
+        itemsToTransfer.push({
+          invItem,
+          matchingChest,
+          quantity: invItem.quantity
+        });
+      }
+    }
+
+    for (const t of itemsToTransfer) {
+      t.matchingChest.quantity += t.quantity;
+      stackedTotal += t.quantity;
+      const idx = this.state.inventory.indexOf(t.invItem);
+      if (idx !== -1) {
+        this.state.inventory.splice(idx, 1);
+      }
+    }
+
+    if (stackedTotal > 0) {
+      this.save();
+    }
+
+    return {
+      success: true,
+      stackedCount: stackedTotal,
+      chest: this.state.farm.chest,
+      inventory: this.state.inventory
+    };
+  }
+
   // Helper for fast dev/testing: advance crop time or reset
   advanceCropTime(seconds = 60) {
     const ms = seconds * 1000;

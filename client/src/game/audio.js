@@ -551,6 +551,77 @@ class SoundEngine {
     }
   }
 
+  // Chest opening: latch click and wooden lid swing
+  playChestOpen() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Latch click
+    const latchOsc = this.ctx.createOscillator();
+    const latchGain = this.ctx.createGain();
+    latchOsc.type = 'triangle';
+    latchOsc.frequency.setValueAtTime(800, t);
+    latchOsc.frequency.exponentialRampToValueAtTime(300, t + 0.05);
+    latchGain.gain.setValueAtTime(0.22, t);
+    latchGain.gain.linearRampToValueAtTime(0.01, t + 0.05);
+    latchOsc.connect(latchGain);
+    latchGain.connect(this.ctx.destination);
+    latchOsc.start(t);
+    latchOsc.stop(t + 0.06);
+
+    // Wood lid rise
+    const lidOsc = this.ctx.createOscillator();
+    const lidGain = this.ctx.createGain();
+    lidOsc.type = 'sawtooth';
+    lidOsc.frequency.setValueAtTime(180, t + 0.04);
+    lidOsc.frequency.exponentialRampToValueAtTime(320, t + 0.16);
+    lidGain.gain.setValueAtTime(0.01, t + 0.04);
+    lidGain.gain.linearRampToValueAtTime(0.14, t + 0.09);
+    lidGain.gain.exponentialRampToValueAtTime(0.005, t + 0.20);
+    lidOsc.connect(lidGain);
+    lidGain.connect(this.ctx.destination);
+    lidOsc.start(t + 0.04);
+    lidOsc.stop(t + 0.21);
+  }
+
+  // Chest closing: heavy wood lid clack and latch catch
+  playChestClose() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Solid wood impact
+    const impactOsc = this.ctx.createOscillator();
+    const impactGain = this.ctx.createGain();
+    impactOsc.type = 'triangle';
+    impactOsc.frequency.setValueAtTime(200, t);
+    impactOsc.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+    impactGain.gain.setValueAtTime(0.28, t);
+    impactGain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+    impactOsc.connect(impactGain);
+    impactGain.connect(this.ctx.destination);
+    impactOsc.start(t);
+    impactOsc.stop(t + 0.13);
+
+    // Latch shut
+    const latchOsc = this.ctx.createOscillator();
+    const latchGain = this.ctx.createGain();
+    latchOsc.type = 'square';
+    latchOsc.frequency.setValueAtTime(640, t + 0.03);
+    latchOsc.frequency.exponentialRampToValueAtTime(220, t + 0.08);
+    latchGain.gain.setValueAtTime(0.18, t + 0.03);
+    latchGain.gain.linearRampToValueAtTime(0.01, t + 0.08);
+    latchOsc.connect(latchGain);
+    latchGain.connect(this.ctx.destination);
+    latchOsc.start(t + 0.03);
+    latchOsc.stop(t + 0.09);
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

@@ -36,6 +36,9 @@ export const api = {
   updatePlayerPosition: (x, y) => request('/player/move', { method: 'POST', body: JSON.stringify({ x, y }) }),
   sleep: () => request('/player/sleep', { method: 'POST' }),
   transitionLocation: (location, x, y) => request('/player/transition-location', { method: 'POST', body: JSON.stringify({ location, x, y }) }),
+  depositToChest: (inventorySlot, quantity = 1, targetChestSlot = null) => request('/chest/deposit', { method: 'POST', body: JSON.stringify({ inventorySlot, quantity, targetChestSlot }) }),
+  withdrawFromChest: (chestSlot, quantity = 1, targetInventorySlot = null) => request('/chest/withdraw', { method: 'POST', body: JSON.stringify({ chestSlot, quantity, targetInventorySlot }) }),
+  quickStackChest: () => request('/chest/quick-stack', { method: 'POST' }),
   devAdvanceTime: (seconds = 60) => request('/dev/advance-time', { method: 'POST', body: JSON.stringify({ seconds }) }),
   devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' })
 };

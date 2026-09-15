@@ -47,6 +47,7 @@ function getDefaultGameState() {
       tiles,
       animals: [
         { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
+        { id: "chicken_red_1", type: "red_chicken", name: "Penélope", x: 22, y: 3, affection: 15 },
         { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
         { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 },
         { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 },
@@ -54,6 +55,10 @@ function getDefaultGameState() {
       ],
       eggs: [
         { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
+      ],
+      chest: [
+        { id: "material_wood", quantity: 5, quality: "normal", slot: 0 },
+        { id: "seeds_strawberry", quantity: 2, quality: "normal", slot: 1 }
       ],
       trees: [
         { id: "tree_1", x: 2, y: 2, health: 3, maxHealth: 3, isStump: false },
@@ -105,6 +110,11 @@ class StorageService {
         if (!state.farm.animals) {
           state.farm.animals = [];
         }
+        if (!state.farm.animals.some(a => a.id === 'chicken_red_1')) {
+          state.farm.animals.push(
+            { id: "chicken_red_1", type: "red_chicken", name: "Penélope", x: 22, y: 3, affection: 15 }
+          );
+        }
         if (!state.farm.animals.some(a => a.id === 'cow_1')) {
           state.farm.animals.push(
             { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 },
@@ -114,6 +124,12 @@ class StorageService {
         if (!state.farm.eggs) {
           state.farm.eggs = [
             { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
+          ];
+        }
+        if (!state.farm.chest) {
+          state.farm.chest = [
+            { id: "material_wood", quantity: 5, quality: "normal", slot: 0 },
+            { id: "seeds_strawberry", quantity: 2, quality: "normal", slot: 1 }
           ];
         }
         if (!state.farm.trees) {
@@ -159,8 +175,14 @@ class StorageService {
       ensureDirectoryExists();
       state.lastSaved = Date.now();
       const content = JSON.stringify(state, null, 2);
-      fs.writeFileSync(TEMP_FILE, content, 'utf8');
-      fs.renameSync(TEMP_FILE, SAVE_FILE);
+      try {
+        fs.writeFileSync(TEMP_FILE, content, 'utf8');
+        fs.renameSync(TEMP_FILE, SAVE_FILE);
+      } catch (renameErr) {
+        // Fallback for Windows/OneDrive locks
+        fs.writeFileSync(SAVE_FILE, content, 'utf8');
+        try { if (fs.existsSync(TEMP_FILE)) fs.unlinkSync(TEMP_FILE); } catch (_) {}
+      }
       return true;
     } catch (err) {
       console.error('[Storage] Error saving state:', err.message);
