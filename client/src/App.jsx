@@ -176,6 +176,29 @@ export default function App() {
     }
   };
 
+  // Collect egg handler from pasture
+  const handleCollectEgg = async (eggId, eggX, eggY) => {
+    try {
+      const res = await api.collectEgg(eggId, eggX, eggY);
+      if (res.success) {
+        audio.playHarvest(res.egg.quality || 'normal');
+        const qualityColor = res.egg.quality === 'gold' ? '#facc15' : 
+                             res.egg.quality === 'silver' ? '#e2e8f0' : '#fde047';
+        if (engineRef.current) {
+          const worldX = eggX * 16 + 8;
+          const worldY = eggY * 16 + 8;
+          engineRef.current.addFloatingText(`+1 Ovo Caipira!`, worldX, worldY, qualityColor);
+          engineRef.current.addFloatingText(`+8 XP`, worldX, worldY - 12, '#38bdf8');
+          engineRef.current.addParticleBurst(worldX, worldY, '#fffbeb', 12);
+        }
+        showToast(res.message || "Ovo coletado com sucesso!", "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "warning");
+    }
+  };
+
   // Buy item handler
   const handleBuy = async (itemId, quantity) => {
     try {
@@ -271,6 +294,7 @@ export default function App() {
         onTileInteract={handleTileInteract}
         onShowToast={showToast}
         onInteractDoor={() => setIsSleepModalOpen(true)}
+        onCollectEgg={handleCollectEgg}
         engineRef={engineRef}
       />
 

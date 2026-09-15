@@ -100,3 +100,33 @@ test('FarmEngine: sleep and natural day transition', (t) => {
   assert.ok(morningTile.crop.stage > 0);
   assert.strictEqual(morningTile.isWatered, false);
 });
+
+test('FarmEngine: livestock and egg collection system', (t) => {
+  const state = farmEngine.getState();
+  assert.ok(state.farm.animals.length >= 3, 'Farm has animals');
+
+  // Sleep should lay eggs if under cap
+  state.farm.eggs = [];
+  farmEngine.sleep();
+  const eggsAfterSleep = farmEngine.getState().farm.eggs;
+  assert.ok(eggsAfterSleep.length > 0, 'Chickens laid an egg overnight');
+
+  const eggToCollect = eggsAfterSleep[0];
+  const initialEggsCollectedStat = state.stats.eggsCollected || 0;
+  const initialXP = state.player.xp;
+
+  // Collect egg
+  const collectRes = farmEngine.collectEgg(eggToCollect.id, eggToCollect.x, eggToCollect.y);
+  assert.strictEqual(collectRes.success, true);
+  assert.strictEqual(collectRes.egg.id, eggToCollect.id);
+
+  // Check inventory has produce_egg
+  const invEgg = state.inventory.find(i => i.id === 'produce_egg');
+  assert.ok(invEgg, 'Egg in player inventory');
+  assert.ok(invEgg.quantity >= 1);
+
+  // Check stats and XP gained
+  assert.strictEqual(farmEngine.getState().stats.eggsCollected, initialEggsCollectedStat + 1);
+  assert.ok(state.player.xp > initialXP);
+});
+

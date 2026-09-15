@@ -7,6 +7,7 @@ export default function GameCanvas({
   onTileInteract, 
   onShowToast, 
   onInteractDoor,
+  onCollectEgg,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -24,7 +25,7 @@ export default function GameCanvas({
     resize();
     window.addEventListener('resize', resize);
 
-    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor);
+    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg);
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 
@@ -53,6 +54,16 @@ export default function GameCanvas({
       engine.destroy();
     };
   }, []);
+
+  // Synchronize callbacks and game state with engine
+  useEffect(() => {
+    if (localEngineRef.current) {
+      localEngineRef.current.onTileInteract = onTileInteract;
+      localEngineRef.current.onShowToast = onShowToast;
+      localEngineRef.current.onInteractDoor = onInteractDoor;
+      localEngineRef.current.onCollectEgg = onCollectEgg;
+    }
+  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg]);
 
   // Synchronize game state with engine
   useEffect(() => {

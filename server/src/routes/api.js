@@ -78,6 +78,17 @@ router.post('/farm/harvest', (req, res) => {
   }
 });
 
+// Collect fresh egg
+router.post('/farm/collect-egg', (req, res) => {
+  try {
+    const { eggId, x, y } = req.body;
+    const result = farmEngine.collectEgg(eggId, x, y);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Buy item
 router.post('/shop/buy', (req, res) => {
   try {

@@ -328,6 +328,23 @@ class FarmEngine {
       tile.isWatered = false;
     }
 
+    // Chicken egg production
+    if (!this.state.farm.eggs) {
+      this.state.farm.eggs = [];
+    }
+    if (this.state.farm.eggs.length < 4) {
+      const roll = Math.random();
+      const quality = roll < 0.15 ? 'gold' : roll < 0.40 ? 'silver' : 'normal';
+      const eggX = 19 + Math.floor(Math.random() * 3);
+      const eggY = 3 + Math.floor(Math.random() * 2);
+      this.state.farm.eggs.push({
+        id: `egg_${Date.now()}_${Math.floor(Math.random() * 100)}`,
+        x: eggX,
+        y: eggY,
+        quality
+      });
+    }
+
     this.save();
     return {
       success: true,
@@ -335,6 +352,45 @@ class FarmEngine {
       time: this.state.time,
       player: this.state.player,
       state: this.getState()
+    };
+  }
+
+  // Collect fresh egg from chicken pasture
+  collectEgg(eggId, tileX, tileY) {
+    if (!this.state.farm.eggs || this.state.farm.eggs.length === 0) {
+      throw new Error("Nenhum ovo encontrado para coletar.");
+    }
+
+    let eggIndex = -1;
+    if (eggId) {
+      eggIndex = this.state.farm.eggs.findIndex(e => e.id === eggId);
+    }
+    if (eggIndex === -1 && typeof tileX === 'number' && typeof tileY === 'number') {
+      eggIndex = this.state.farm.eggs.findIndex(e => Math.abs(e.x - tileX) <= 1 && Math.abs(e.y - tileY) <= 1);
+    }
+
+    if (eggIndex === -1) {
+      throw new Error("Ovo não encontrado nesta posição.");
+    }
+
+    const egg = this.state.farm.eggs[eggIndex];
+    this.state.farm.eggs.splice(eggIndex, 1);
+
+    // Add to player inventory
+    this.addItemToInventory('produce_egg', 1, egg.quality || 'normal');
+
+    // Give animal farming XP
+    this.addPlayerXP(8);
+    this.state.stats.eggsCollected = (this.state.stats.eggsCollected || 0) + 1;
+
+    this.save();
+    return {
+      success: true,
+      egg,
+      message: `Coletou 1x Ovo Caipira (${egg.quality === 'gold' ? 'Ouro' : egg.quality === 'silver' ? 'Prata' : 'Normal'})!`,
+      player: this.state.player,
+      inventory: this.state.inventory,
+      eggs: this.state.farm.eggs
     };
   }
 

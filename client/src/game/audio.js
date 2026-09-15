@@ -292,6 +292,53 @@ class SoundEngine {
     }, 700);
   }
 
+  // Cute chicken cluck sound
+  playCluck() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    [0, 0.09].forEach((offset, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(idx === 0 ? 360 : 310, t + offset);
+      osc.frequency.exponentialRampToValueAtTime(idx === 0 ? 240 : 200, t + offset + 0.07);
+
+      gain.gain.setValueAtTime(0.18, t + offset);
+      gain.gain.linearRampToValueAtTime(0.001, t + offset + 0.07);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t + offset);
+      osc.stop(t + offset + 0.08);
+    });
+  }
+
+  // Tiny baby chick chirp sound
+  playChirp() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1800, t);
+    osc.frequency.linearRampToValueAtTime(2600, t + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(2000, t + 0.09);
+
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.linearRampToValueAtTime(0.001, t + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
   // Helper: white noise burst with bandpass filter for dirt/crunch sounds
   playNoiseBuffer(duration, filterFreq, volume) {
     if (!this.ctx) return;

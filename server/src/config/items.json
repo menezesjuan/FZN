@@ -85,6 +85,13 @@
       "cropId": "onion",
       "baseSellPrice": 24,
       "description": "Cebola colhida da sua fazenda."
+    },
+    "produce_egg": {
+      "id": "produce_egg",
+      "name": "Ovo Caipira",
+      "category": "produce",
+      "baseSellPrice": 35,
+      "description": "Ovo fresco colhido diretamente do galinheiro da fazenda."
     }
   },
   "qualities": {

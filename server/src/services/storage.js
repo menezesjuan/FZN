@@ -43,7 +43,15 @@ function getDefaultGameState() {
     farm: {
       width: farmWidth,
       height: farmHeight,
-      tiles
+      tiles,
+      animals: [
+        { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
+        { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
+        { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 }
+      ],
+      eggs: [
+        { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
+      ]
     },
     inventory: [
       { id: "tool_hoe", quantity: 1, quality: "normal", slot: 0 },
@@ -76,7 +84,20 @@ class StorageService {
     try {
       if (fs.existsSync(SAVE_FILE)) {
         const raw = fs.readFileSync(SAVE_FILE, 'utf8');
-        return JSON.parse(raw);
+        const state = JSON.parse(raw);
+        if (!state.farm.animals) {
+          state.farm.animals = [
+            { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
+            { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
+            { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 }
+          ];
+        }
+        if (!state.farm.eggs) {
+          state.farm.eggs = [
+            { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
+          ];
+        }
+        return state;
       }
     } catch (err) {
       console.error('[Storage] Error reading save file, creating default state:', err.message);

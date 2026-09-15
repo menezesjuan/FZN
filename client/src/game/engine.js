@@ -5,13 +5,21 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
     this.onShowToast = onShowToast;
     this.onInteractDoor = onInteractDoor;
+    this.onCollectEgg = onCollectEgg;
     this.isNearDoor = false;
+
+    // Pasture animals (Chickens and chicks)
+    this.animals = [
+      { id: 'chicken_1', type: 'adult', name: 'Gertrudes', x: 20 * TILE_SIZE, y: 3 * TILE_SIZE, targetX: 20 * TILE_SIZE, targetY: 3 * TILE_SIZE, state: 'idle', stateTimer: 2, frame: 0, animTimer: 0, flipX: false },
+      { id: 'chick_1', type: 'chick', name: 'Piu-Piu', x: 19 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 19 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 1.5, frame: 0, animTimer: 0, flipX: false },
+      { id: 'chick_2', type: 'chick', name: 'Amarelinho', x: 21 * TILE_SIZE, y: 4 * TILE_SIZE, targetX: 21 * TILE_SIZE, targetY: 4 * TILE_SIZE, state: 'idle', stateTimer: 2.2, frame: 0, animTimer: 0, flipX: true }
+    ];
 
     this.images = {};
     this.assetsLoaded = false;
@@ -99,7 +107,8 @@ export class GameEngine {
       { key: 'chest', url: '/assets/Objects/chest.png' },
       { key: 'fence', url: "/assets/Objects/Fence's%20copiar.png" },
       { key: 'road', url: '/assets/Objects/Road%20copiar.png' },
-      { key: 'chicken', url: '/assets/Farm%20Animals/Baby%20Chicken%20Yellow.png' }
+      { key: 'chicken', url: '/assets/Farm%20Animals/Baby%20Chicken%20Yellow.png' },
+      { key: 'chicken_adult', url: '/assets/Farm%20Animals/Chicken%20Blonde%20%20Green.png' }
     ];
 
     const promises = assetList.map(({ key, url }) => {
@@ -174,6 +183,58 @@ export class GameEngine {
       return;
     }
 
+    // Distance check from player center
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+
+    // Check if clicked on an egg
+    if (this.gameState.farm.eggs && this.gameState.farm.eggs.length > 0) {
+      const clickedEgg = this.gameState.farm.eggs.find(egg => {
+        const eggCenterX = egg.x * TILE_SIZE + 8;
+        const eggCenterY = egg.y * TILE_SIZE + 8;
+        return Math.hypot(eggCenterX - this.mouse.worldX, eggCenterY - this.mouse.worldY) < 14;
+      });
+
+      if (clickedEgg) {
+        const eggCenterX = clickedEgg.x * TILE_SIZE + 8;
+        const eggCenterY = clickedEgg.y * TILE_SIZE + 8;
+        const dist = Math.hypot(eggCenterX - playerCenterX, eggCenterY - playerCenterY) / TILE_SIZE;
+
+        if (dist > 3.5) {
+          if (this.onShowToast) {
+            this.onShowToast("Muito longe para pegar o ovo! Aproxime-se.", "warning");
+          }
+          return;
+        }
+
+        if (this.onCollectEgg) {
+          this.onCollectEgg(clickedEgg.id, clickedEgg.x, clickedEgg.y);
+          return;
+        }
+      }
+    }
+
+    // Check if clicked on an animal (petting interaction)
+    const clickedAnimal = this.animals.find(animal => {
+      const animalCenterX = animal.x + 8;
+      const animalCenterY = animal.y + 8;
+      return Math.hypot(animalCenterX - this.mouse.worldX, animalCenterY - this.mouse.worldY) < 14;
+    });
+
+    if (clickedAnimal) {
+      const dist = Math.hypot(clickedAnimal.x + 8 - playerCenterX, clickedAnimal.y + 8 - playerCenterY) / TILE_SIZE;
+      if (dist <= 3.5) {
+        if (clickedAnimal.type === 'adult') {
+          audio.playCluck();
+        } else {
+          audio.playChirp();
+        }
+        this.addFloatingText("❤️", clickedAnimal.x + 8, clickedAnimal.y - 4, '#ff6b81');
+        this.addParticleBurst(clickedAnimal.x + 8, clickedAnimal.y + 4, '#f472b6', 6);
+        return;
+      }
+    }
+
     // Check if clicked on farmhouse door
     if ((tx === 17 || tx === 18) && (ty === 5 || ty === 6)) {
       if (this.onInteractDoor) {
@@ -182,9 +243,6 @@ export class GameEngine {
       }
     }
 
-    // Distance check from player center
-    const playerCenterX = this.player.x + 16;
-    const playerCenterY = this.player.y + 24;
     const tileCenterX = tx * TILE_SIZE + 8;
     const tileCenterY = ty * TILE_SIZE + 8;
     const dist = Math.hypot(tileCenterX - playerCenterX, tileCenterY - playerCenterY) / TILE_SIZE;
@@ -308,16 +366,82 @@ export class GameEngine {
       if (intersects(box, trunkBox)) return true;
     }
 
-    // 5. Perimeter Fences
+    // 5. Perimeter & Pasture Fences
     // Top border fence (except path gap)
     const topFence = { x: 7 * TILE_SIZE, y: 1 * TILE_SIZE, w: 6 * TILE_SIZE, h: 12 };
     if (intersects(box, topFence)) return true;
+
+    // Pasture top fence: x=19 to 23 at y=1
+    const pastureTopFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 4.5 * TILE_SIZE, h: 12 };
+    if (intersects(box, pastureTopFence)) return true;
+
+    // Pasture right fence: x=23, y=1 to 5
+    const pastureRightFence = { x: 23 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
+    if (intersects(box, pastureRightFence)) return true;
+
+    // Pasture bottom fence: x=20 to 23 at y=5 (gate opening at x=19)
+    const pastureBottomFence = { x: 20 * TILE_SIZE, y: 5 * TILE_SIZE, w: 3.5 * TILE_SIZE, h: 12 };
+    if (intersects(box, pastureBottomFence)) return true;
 
     return false;
   }
 
   update(dt) {
     if (!this.gameState) return;
+
+    // Pasture animals wandering & pecking AI
+    for (const animal of this.animals) {
+      animal.animTimer += dt;
+      animal.stateTimer -= dt;
+
+      if (animal.state === 'walk') {
+        const dx = animal.targetX - animal.x;
+        const dy = animal.targetY - animal.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 2 || animal.stateTimer <= 0) {
+          animal.x = animal.targetX;
+          animal.y = animal.targetY;
+          animal.state = Math.random() < 0.45 ? 'peck' : 'idle';
+          animal.stateTimer = 1.5 + Math.random() * 2.5;
+          animal.frame = 0;
+        } else {
+          const moveSpeed = animal.type === 'adult' ? 18 : 24;
+          const step = Math.min(dist, moveSpeed * dt);
+          animal.x += (dx / dist) * step;
+          animal.y += (dy / dist) * step;
+          animal.flipX = dx < 0;
+
+          if (animal.animTimer >= 0.15) {
+            animal.animTimer = 0;
+            animal.frame = (animal.frame + 1) % 4;
+          }
+        }
+      } else if (animal.state === 'peck') {
+        if (animal.animTimer >= 0.22) {
+          animal.animTimer = 0;
+          animal.frame = (animal.frame + 1) % 4;
+        }
+        if (animal.stateTimer <= 0) {
+          animal.state = 'idle';
+          animal.stateTimer = 1.0 + Math.random() * 2.0;
+        }
+      } else { // idle
+        if (animal.animTimer >= 0.4) {
+          animal.animTimer = 0;
+          animal.frame = (animal.frame + 1) % 2;
+        }
+        if (animal.stateTimer <= 0) {
+          // Choose a new target within pasture [19.2 - 22.5] tiles X, [2.2 - 4.5] tiles Y
+          const targetTileX = 19.3 + Math.random() * 3.2;
+          const targetTileY = 2.2 + Math.random() * 2.4;
+          animal.targetX = targetTileX * TILE_SIZE;
+          animal.targetY = targetTileY * TILE_SIZE;
+          animal.state = 'walk';
+          animal.stateTimer = 2.5 + Math.random() * 2.0;
+        }
+      }
+    }
 
     // Movement calculation
     let dx = 0;
@@ -540,6 +664,21 @@ export class GameEngine {
     for (let x = 7; x <= 12; x++) {
       ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 1 * TILE_SIZE, 16, 16);
     }
+
+    // Pasture top fence (y=1, from x=19 to x=23)
+    for (let x = 19; x <= 23; x++) {
+      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 1 * TILE_SIZE, 16, 16);
+    }
+
+    // Pasture right fence (x=23, from y=2 to y=4)
+    for (let y = 2; y <= 4; y++) {
+      ctx.drawImage(fenceImg, 16, 32, 16, 16, 23 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+    }
+
+    // Pasture bottom fence (y=5, from x=20 to x=23, leaves x=19 open as entrance gate)
+    for (let x = 20; x <= 23; x++) {
+      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 5 * TILE_SIZE, 16, 16);
+    }
   }
 
   renderDepthSortedEntities(ctx) {
@@ -638,7 +777,76 @@ export class GameEngine {
       }
     }
 
-    // 5. Player Character
+    // 5. Pasture Animals (Chickens and chicks)
+    for (const animal of this.animals) {
+      entities.push({
+        sortY: animal.y + 14,
+        render: () => {
+          // Drop shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+          ctx.beginPath();
+          const shadowRx = animal.type === 'adult' ? 6 : 4;
+          const shadowRy = animal.type === 'adult' ? 2.5 : 2;
+          ctx.ellipse(animal.x + 8, animal.y + 13, shadowRx, shadowRy, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          const img = animal.type === 'adult' ? this.images.chicken_adult : this.images.chicken;
+          if (!img) return;
+
+          // In chicken_adult (64x32), row 0 is 16x16 frames 0..3 (walk/peck)
+          // In chicken baby (64x48), row 0 is 16x16 frames 0..3 (walk/peck)
+          const srcX = (animal.frame % 4) * 16;
+          const srcY = 0;
+
+          ctx.save();
+          if (animal.flipX) {
+            ctx.translate(animal.x + 16, animal.y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, srcX, srcY, 16, 16, 0, 0, 16, 16);
+          } else {
+            ctx.drawImage(img, srcX, srcY, 16, 16, animal.x, animal.y, 16, 16);
+          }
+          ctx.restore();
+        }
+      });
+    }
+
+    // 6. Ground Eggs
+    if (this.gameState.farm.eggs) {
+      const babyChickenImg = this.images.chicken;
+      for (const egg of this.gameState.farm.eggs) {
+        entities.push({
+          sortY: egg.y * TILE_SIZE + 12,
+          render: () => {
+            const eggScreenX = egg.x * TILE_SIZE;
+            const eggScreenY = egg.y * TILE_SIZE;
+
+            // Small drop shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(eggScreenX + 8, eggScreenY + 11, 4, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Egg sprite from Baby Chicken Yellow.png row 2 (y=32, 16x16)
+            if (babyChickenImg) {
+              ctx.drawImage(babyChickenImg, 0, 32, 16, 16, eggScreenX, eggScreenY, 16, 16);
+            }
+
+            // Quality glow sparkle if silver or gold
+            if (egg.quality && egg.quality !== 'normal') {
+              const sparkleColor = egg.quality === 'gold' ? '#facc15' : '#e2e8f0';
+              const pulse = Math.sin(Date.now() / 220) * 1.5;
+              ctx.fillStyle = sparkleColor;
+              ctx.beginPath();
+              ctx.arc(eggScreenX + 11, eggScreenY + 4 + pulse, 1.5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        });
+      }
+    }
+
+    // 7. Player Character
     entities.push({
       sortY: this.player.y + 28, // Feet coordinate
       render: () => {

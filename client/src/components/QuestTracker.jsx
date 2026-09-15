@@ -53,16 +53,23 @@ export default function QuestTracker({ gameState }) {
       progress: `${harvestedCount}/2 colheitas realizadas`,
       percent: Math.min(100, Math.round((harvestedCount / 2) * 100))
     };
+  } else if ((stats.eggsCollected || 0) < 1) {
+    activeQuest = {
+      title: "6. Cuidados no Galinheiro",
+      description: "Visite o cercado das galinhas ao lado da casa, faça carinho nelas e recolha um ovo fresco do chão.",
+      progress: `${stats.eggsCollected || 0}/1 ovo recolhido`,
+      percent: stats.eggsCollected ? 100 : 0
+    };
   } else if (moneyEarned < 60) {
     activeQuest = {
-      title: "6. Comércio Rural",
-      description: "Abra o Empório (B) e venda seus produtos agrícolas frescos para lucrar moedas de ouro.",
+      title: "7. Comércio Rural",
+      description: "Abra o Empório (B) e venda seus produtos frescos e ovos para lucrar moedas de ouro.",
       progress: `${moneyEarned}/60G arrecadados`,
       percent: Math.min(100, Math.round((moneyEarned / 60) * 100))
     };
   } else {
     activeQuest = {
-      title: "7. Expansão da Propriedade",
+      title: "8. Expansão da Propriedade",
       description: "Reinvista seus lucros em mais sementes, atinja o Nível 2 de Fazendeiro e acumule 300G.",
       progress: `${gameState.player?.money || 0}/300G`,
       percent: Math.min(100, Math.round(((gameState.player?.money || 0) / 300) * 100))
