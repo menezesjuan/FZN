@@ -1,3 +1,5 @@
+import { audio } from './audio';
+
 // 2D Game Engine for FZN Farm — Refined with Collisions, Y-Sorting & World Composition
 const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
@@ -24,6 +26,7 @@ export class GameEngine {
       isMoving: false,
       frame: 0,
       animTimer: 0,
+      actionTimer: 0,
       // Hitbox relative to (x, y): 32x32 sprite, hitbox at bottom feet
       hitbox: { offsetX: 10, offsetY: 22, width: 12, height: 8 }
     };
@@ -198,6 +201,23 @@ export class GameEngine {
     this.selectedTool = tool;
   }
 
+  triggerToolAction(targetTileX, targetTileY) {
+    // Face the target tile
+    const playerTileX = Math.floor((this.player.x + 16) / TILE_SIZE);
+    const playerTileY = Math.floor((this.player.y + 24) / TILE_SIZE);
+    const diffX = targetTileX - playerTileX;
+    const diffY = targetTileY - playerTileY;
+
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      this.player.direction = diffX > 0 ? 'right' : 'left';
+    } else if (Math.abs(diffY) > 0) {
+      this.player.direction = diffY > 0 ? 'down' : 'up';
+    }
+
+    // Set punch/lunge timer (0.14 seconds)
+    this.player.actionTimer = 0.14;
+  }
+
   addFloatingText(text, worldX, worldY, color = '#ffe600') {
     this.floatingTexts.push({
       text,
@@ -341,6 +361,9 @@ export class GameEngine {
       if (this.player.animTimer >= 0.11) {
         this.player.animTimer = 0;
         this.player.frame = (this.player.frame + 1) % 6;
+        if (this.player.frame === 1 || this.player.frame === 4) {
+          audio.playFootstep();
+        }
       }
     } else {
       // Idle animation
@@ -349,6 +372,11 @@ export class GameEngine {
         this.player.animTimer = 0;
         this.player.frame = (this.player.frame + 1) % 4;
       }
+    }
+
+    // Action lunge cooldown
+    if (this.player.actionTimer > 0) {
+      this.player.actionTimer = Math.max(0, this.player.actionTimer - dt);
     }
 
     // Camera smoothly follows player with bounds clamping
@@ -630,6 +658,19 @@ export class GameEngine {
     const posX = Math.round(this.player.x);
     const posY = Math.round(this.player.y);
 
+    let drawX = posX;
+    let drawY = posY;
+
+    // Action punch/lunge offset
+    if (this.player.actionTimer > 0) {
+      const progress = this.player.actionTimer / 0.14; // 1 down to 0
+      const amount = Math.sin(progress * Math.PI) * 4;
+      if (this.player.direction === 'down') drawY += amount;
+      else if (this.player.direction === 'up') drawY -= amount;
+      else if (this.player.direction === 'right') drawX += amount;
+      else if (this.player.direction === 'left') drawX -= amount;
+    }
+
     // Soft grounded drop shadow under character feet
     ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
     ctx.beginPath();
@@ -639,11 +680,11 @@ export class GameEngine {
     ctx.save();
     if (flipX) {
       // Flip character horizontally
-      ctx.translate(posX + 32, posY);
+      ctx.translate(drawX + 32, drawY);
       ctx.scale(-1, 1);
       ctx.drawImage(img, srcX, srcY, 32, 32, 0, 0, 32, 32);
     } else {
-      ctx.drawImage(img, srcX, srcY, 32, 32, posX, posY, 32, 32);
+      ctx.drawImage(img, srcX, srcY, 32, 32, drawX, drawY, 32, 32);
     }
     ctx.restore();
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from './api/client';
+import { audio } from './game/audio';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
 import InventoryModal from './components/InventoryModal';
@@ -15,10 +16,12 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(audio.isMuted());
   const [toast, setToast] = useState({ message: '', type: 'info' });
 
   const engineRef = useRef(null);
   const toastTimeoutRef = useRef(null);
+  const prevLevelRef = useRef(null);
 
   const showToast = useCallback((message, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -28,10 +31,23 @@ export default function App() {
     }, 2800);
   }, []);
 
+  const handleToggleMute = useCallback(() => {
+    const nextMuted = audio.toggleMute();
+    setIsMuted(nextMuted);
+    showToast(nextMuted ? "Áudio desativado 🔇" : "Áudio ativado 🔊", "info");
+  }, [showToast]);
+
   // Fetch initial game state
   const loadState = useCallback(async () => {
     try {
       const data = await api.getState();
+      if (data.state && prevLevelRef.current !== null && data.state.player.level > prevLevelRef.current) {
+        audio.playLevelUp();
+        showToast(`🎉 Parabéns! Você subiu para o Nível ${data.state.player.level}!`, 'success');
+      }
+      if (data.state) {
+        prevLevelRef.current = data.state.player.level;
+      }
       setGameState(data.state);
       setCatalog(data.catalog || []);
       setItemsConfig(data.itemsConfig || null);
@@ -81,8 +97,12 @@ export default function App() {
     try {
       // 1. If crop is ready to harvest, harvest takes priority regardless of tool held
       if (tile.crop && tile.crop.ready) {
+        if (engineRef.current) {
+          engineRef.current.triggerToolAction(x, y);
+        }
         const res = await api.harvestCrop(x, y);
         if (res.success) {
+          audio.playHarvest(res.harvested.quality);
           showToast(`Colheu ${res.harvested.quantity}x ${res.harvested.name} (${res.harvested.quality})!`, 'success');
           if (engineRef.current) {
             const qualityColor = res.harvested.quality === 'iridium' ? '#c084fc' : 
@@ -90,7 +110,7 @@ export default function App() {
                                  res.harvested.quality === 'silver' ? '#e2e8f0' : '#4ade80';
             engineRef.current.addFloatingText(`+${res.harvested.quantity} ${res.harvested.name}!`, worldX, worldY, qualityColor);
             engineRef.current.addFloatingText(`+${res.harvested.xpGained} XP`, worldX, worldY - 12, '#38bdf8');
-            engineRef.current.addParticleBurst(worldX, worldY, qualityColor, 12);
+            engineRef.current.addParticleBurst(worldX, worldY, qualityColor, 14);
           }
           await loadState();
         }
@@ -104,27 +124,39 @@ export default function App() {
       }
 
       if (activeItem.id === 'tool_hoe') {
+        if (engineRef.current) {
+          engineRef.current.triggerToolAction(x, y);
+        }
         const res = await api.tillTile(x, y);
         if (res.success) {
+          audio.playTill();
           if (engineRef.current) {
-            engineRef.current.addParticleBurst(worldX, worldY, '#8b5a2b', 8);
+            engineRef.current.addParticleBurst(worldX, worldY, '#8b5a2b', 10);
           }
           showToast("Solo arado!", "success");
           await loadState();
         }
       } else if (activeItem.id === 'tool_can') {
+        if (engineRef.current) {
+          engineRef.current.triggerToolAction(x, y);
+        }
         const res = await api.waterTile(x, y);
         if (res.success) {
+          audio.playWater();
           if (engineRef.current) {
-            engineRef.current.addParticleBurst(worldX, worldY, '#38bdf8', 10);
+            engineRef.current.addParticleBurst(worldX, worldY, '#38bdf8', 12);
             engineRef.current.addFloatingText("Regado!", worldX, worldY, '#38bdf8');
           }
           showToast("Solo regado!", "success");
           await loadState();
         }
       } else if (activeItem.id.startsWith('seeds_')) {
+        if (engineRef.current) {
+          engineRef.current.triggerToolAction(x, y);
+        }
         const res = await api.plantCrop(x, y, activeItem.id);
         if (res.success) {
+          audio.playPlant();
           if (engineRef.current) {
             engineRef.current.addParticleBurst(worldX, worldY, '#4ade80', 8);
             engineRef.current.addFloatingText("Plantado!", worldX, worldY, '#4ade80');
@@ -145,6 +177,7 @@ export default function App() {
     try {
       const res = await api.buyItem(itemId, quantity);
       if (res.success) {
+        audio.playCoin();
         showToast(res.message, 'success');
         await loadState();
       }
@@ -158,6 +191,7 @@ export default function App() {
     try {
       const res = await api.sellItem(slotIndex, quantity);
       if (res.success) {
+        audio.playCoin();
         showToast(res.message, 'success');
         await loadState();
       }
@@ -213,6 +247,8 @@ export default function App() {
         onOpenShop={() => setIsShopOpen(true)}
         onDevAdvanceTime={handleDevAdvanceTime}
         onDevRestoreEnergy={handleDevRestoreEnergy}
+        isMuted={isMuted}
+        onToggleMute={handleToggleMute}
         itemsConfig={itemsConfig}
       />
 

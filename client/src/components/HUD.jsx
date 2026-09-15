@@ -10,8 +10,12 @@ export default function HUD({
   onOpenShop,
   onDevAdvanceTime,
   onDevRestoreEnergy,
+  isMuted,
+  onToggleMute,
   itemsConfig 
 }) {
+  const [showDevTools, setShowDevTools] = React.useState(false);
+
   if (!player) return null;
 
   const xpRequired = player.level * 100;
@@ -80,20 +84,42 @@ export default function HUD({
             </div>
           </div>
 
-          <div className="pointer-events-auto" style={{ display: 'flex', gap: '8px' }}>
+          <div className="pointer-events-auto" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button 
+              className="pixel-btn" 
+              onClick={onToggleMute} 
+              title={isMuted ? "Ativar Áudio (Mudo)" : "Desativar Áudio"}
+              style={{ padding: '8px 10px', minWidth: '38px', fontSize: '15px' }}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
             <button className="pixel-btn" onClick={onOpenInventory} title="Abrir Mochila (I)">
               🎒 Mochila
             </button>
-            <button className="pixel-btn" onClick={onOpenShop} title="Loja do Vilarejo">
+            <button className="pixel-btn" onClick={onOpenShop} title="Loja do Vilarejo (B)">
               🏪 Loja
             </button>
-            <button className="pixel-btn" onClick={onDevAdvanceTime} style={{ background: '#7e57c2', color: '#fff', borderColor: '#4527a0' }} title="Acelerar 60s">
-              ⏩ +60s
-            </button>
-            <button className="pixel-btn" onClick={onDevRestoreEnergy} style={{ background: '#0288d1', color: '#fff', borderColor: '#01579b' }} title="Restaurar Energia">
-              ⚡ Energia
+            <button 
+              className="pixel-btn" 
+              onClick={() => setShowDevTools(p => !p)} 
+              title="Painel de Ferramentas Rápidas"
+              style={{ padding: '8px 10px', fontSize: '13px', background: '#64748b', borderColor: '#334155', color: '#fff' }}
+            >
+              🛠️
             </button>
           </div>
+
+          {/* Optional subtle collapsible dev drawer */}
+          {showDevTools && (
+            <div className="pointer-events-auto pixel-panel" style={{ display: 'flex', gap: '6px', padding: '6px 10px', marginTop: '4px' }}>
+              <button className="pixel-btn" onClick={onDevAdvanceTime} style={{ background: '#7e57c2', color: '#fff', borderColor: '#4527a0', padding: '4px 8px', fontSize: '11px' }} title="Acelerar 60s">
+                ⏩ +60s
+              </button>
+              <button className="pixel-btn" onClick={onDevRestoreEnergy} style={{ background: '#0288d1', color: '#fff', borderColor: '#01579b', padding: '4px 8px', fontSize: '11px' }} title="Restaurar Energia">
+                ⚡ Restaurar
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
