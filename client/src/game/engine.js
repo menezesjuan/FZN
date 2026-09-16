@@ -131,9 +131,9 @@ export class GameEngine {
       // Branch towards storage chest & north workbench
       '13,6', '13,5',
       // Branch to chicken coop pasture gate (x=20, y=5)
-      '19,6', '20,6',
+      '19,6', '20,6', '20,5', '21,5',
       // Branch to dairy cattle pasture gate (x=18, y=9)
-      '18,8', '17,8', '17,9',
+      '18,8', '17,8', '17,9', '17,10',
       // Branch towards south artisanal area
       '14,8', '14,9', '14,10'
     ]);
@@ -812,6 +812,10 @@ export class GameEngine {
     }
 
     // 5. Perimeter & Pasture Fences
+    // Seam between farmhouse and chicken coop (completely closes the 8px trap so player/bot never gets wedged)
+    const houseChickenSeam = { x: 18.2 * TILE_SIZE, y: 1 * TILE_SIZE, w: 1.2 * TILE_SIZE, h: 4.8 * TILE_SIZE };
+    if (intersects(box, houseChickenSeam)) return true;
+
     // Top border fence (except path gap)
     const topFence = { x: 7 * TILE_SIZE, y: 1 * TILE_SIZE, w: 6 * TILE_SIZE, h: 12 };
     if (intersects(box, topFence)) return true;
@@ -824,12 +828,16 @@ export class GameEngine {
     const pastureRightFence = { x: 23 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
     if (intersects(box, pastureRightFence)) return true;
 
-    // Pasture left fence: x=19, y=1 to 4.0 (leaving corner clear)
-    const pastureLeftFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 3.9 * TILE_SIZE };
+    // Pasture left fence: x=19, y=1 to 4.5
+    const pastureLeftFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.2 * TILE_SIZE };
     if (intersects(box, pastureLeftFence)) return true;
 
-    // Pasture bottom fence: x=21.5 to 23 at y=5 (wide 36px gate opening from x=19.2 to 21.5)
-    const pastureBottomFence = { x: 21.5 * TILE_SIZE, y: 5 * TILE_SIZE, w: 2.0 * TILE_SIZE, h: 12 };
+    // Pasture bottom corner at x=19, y=5
+    const pastureBottomCorner = { x: 19 * TILE_SIZE, y: 5 * TILE_SIZE, w: 12, h: 12 };
+    if (intersects(box, pastureBottomCorner)) return true;
+
+    // Pasture bottom fence right wing: x=22 to 23 at y=5 (gate is completely clear at x=19.8 to 22.0, 35px wide)
+    const pastureBottomFence = { x: 22.2 * TILE_SIZE, y: 5 * TILE_SIZE, w: 1.5 * TILE_SIZE, h: 12 };
     if (intersects(box, pastureBottomFence)) return true;
 
     // Cattle pasture fences (south-east meadow, aligned x=18 to 23, y=8 to 12)
@@ -1236,9 +1244,15 @@ export class GameEngine {
     if (this.player.isMoving && movedDist < 2) {
       this.stuckTracker.timer += dt;
       if (this.stuckTracker.timer > 1.0) {
-        // Nudge player towards central open stone avenue (y = 7.2 * 16)
-        const openAvenueY = 7.2 * TILE_SIZE;
-        this.player.y += (openAvenueY > this.player.y ? 1 : -1) * 45 * dt;
+        // If trapped in narrow space between house and pasture, pull directly to open stone avenue
+        if (this.player.x >= 17.5 * TILE_SIZE && this.player.x <= 20.5 * TILE_SIZE && this.player.y < 6.8 * TILE_SIZE) {
+          this.player.x = 17 * TILE_SIZE;
+          this.player.y = 7.2 * TILE_SIZE;
+        } else {
+          // Nudge player towards central open stone avenue (y = 7.2 * 16)
+          const openAvenueY = 7.2 * TILE_SIZE;
+          this.player.y += (openAvenueY > this.player.y ? 1 : -1) * 50 * dt;
+        }
         this.stuckTracker.timer = 0;
       }
     } else {
@@ -1326,13 +1340,13 @@ export class GameEngine {
     // 3. Prioridade 3: Ovos no Solo do Pasto
     const egg = this.gameState.farm?.eggs && this.gameState.farm.eggs.length > 0 ? this.gameState.farm.eggs[0] : null;
     if (egg) {
-      const targetX = egg.x * TILE_SIZE;
-      const targetY = egg.y * TILE_SIZE;
+      const targetX = egg.x * TILE_SIZE + 8;
+      const targetY = egg.y * TILE_SIZE + 8;
       const dist = Math.hypot(targetX - playerCenterX, targetY - playerCenterY);
 
       this.idleBotActionLabel = 'Recolhendo Ovo no Pasto...';
 
-      // Pick up egg from up to 38px (more than 2 tiles reach)
+      // Pick up egg from up to 38px (generous 2.4 tiles reach)
       if (dist < 38) {
         this.player.isMoving = false;
         this.updatePlayerIdleAnimation(dt);
@@ -1341,28 +1355,41 @@ export class GameEngine {
           this.triggerToolAction(egg.x, egg.y);
           audio.playEgg();
           if (this.onCollectEgg) {
-            this.onCollectEgg(egg.id);
+            this.onCollectEgg(egg.id, egg.x, egg.y);
           }
           this.idleBotCooldown = 1.0;
         }
         return;
+      }
+
+      // Pasture Entry Navigation:
+      // Is player already inside the chicken pasture or at the gate threshold?
+      const isInsideCoop = playerCenterX >= 19.2 * TILE_SIZE && playerCenterY <= 5.8 * TILE_SIZE;
+
+      if (isInsideCoop) {
+        // Inside the coop enclosure: move directly towards the target egg!
+        this.navigateTowards(targetX, targetY, dt);
       } else {
-        // Avoid the narrow 8px impassable gap between farmhouse and chicken coop!
-        // Route around farmhouse via the open south stone avenue (y = 7.0)
-        if (playerCenterX < 20 * TILE_SIZE) {
+        // Outside the coop: route cleanly around the farmhouse via open avenue
+        // Farmhouse is at x: 14 to 18.5, y: 1 to 7
+        if (playerCenterX < 19.5 * TILE_SIZE) {
           if (playerCenterY < 6.8 * TILE_SIZE) {
-            // Drop down to the open avenue first
+            // West of farmhouse: first step down to open avenue
             this.navigateTowards(playerCenterX, 7.2 * TILE_SIZE, dt);
           } else {
-            // Head east along the open avenue
+            // On open avenue: head east to gate entrance
             this.navigateTowards(20.5 * TILE_SIZE, 7.2 * TILE_SIZE, dt);
           }
         } else {
-          // East of farmhouse: head directly north through the wide coop gate
-          this.navigateTowards(targetX, targetY, dt);
+          // East of farmhouse: walk straight north through the open gate
+          if (playerCenterY > 5.2 * TILE_SIZE) {
+            this.navigateTowards(20.5 * TILE_SIZE, 4.5 * TILE_SIZE, dt);
+          } else {
+            this.navigateTowards(targetX, targetY, dt);
+          }
         }
-        return;
       }
+      return;
     }
 
     // 4. Prioridade 4: Ordenhar Vacas Leiteiras
@@ -1397,15 +1424,35 @@ export class GameEngine {
           this.idleBotCooldown = 1.2;
         }
         return;
-      } else {
-        // Route towards the wide west gate of the cattle enclosure
-        if (playerCenterX < 18 * TILE_SIZE) {
-          this.navigateTowards(17.5 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
-        } else {
-          this.navigateTowards(cowCenterX, cowCenterY, dt);
-        }
-        return;
       }
+
+      // Cattle Enclosure Navigation
+      const isInsideCattlePen = playerCenterX >= 18 * TILE_SIZE && playerCenterY >= 8.5 * TILE_SIZE;
+
+      if (isInsideCattlePen) {
+        // Inside the cattle pen: move directly to cow
+        this.navigateTowards(cowCenterX, cowCenterY, dt);
+      } else {
+        // Outside the cattle pen: must route through the west gate at (17.5, 9.5)
+        if (playerCenterY < 8.0 * TILE_SIZE) {
+          // North of cattle pen (e.g. leaving chicken coop or on stone avenue):
+          if (playerCenterX > 17.5 * TILE_SIZE) {
+            // Move along the stone avenue (y = 7.2) west to clear fence
+            this.navigateTowards(17.5 * TILE_SIZE, 7.2 * TILE_SIZE, dt);
+          } else {
+            // At x <= 17.5: walk south down to the gate opening (y = 9.5)
+            this.navigateTowards(17.5 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
+          }
+        } else {
+          // At y >= 8.0: approach gate from the west
+          if (playerCenterX < 17.5 * TILE_SIZE) {
+            this.navigateTowards(17.5 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
+          } else {
+            this.navigateTowards(cowCenterX, cowCenterY, dt);
+          }
+        }
+      }
+      return;
     }
 
     // 5. Prioridade 5: Recolher Máquinas Artesanais Prontas
@@ -1762,8 +1809,9 @@ export class GameEngine {
       for (let y = 2; y <= 4; y++) addFence('vertical_w', 19, y, 15);
 
       addFence('corner_sw', 19, 5, 16);
-      addFence('post_isolated', 20, 5, 16);
-      for (let x = 21; x <= 22; x++) addFence('horizontal_b', x, 5, 16);
+      addFence('post_isolated', 19, 5, 16);
+      // Open wide gate at x=20 and x=21 (walkway and entrance)
+      addFence('post_isolated', 22, 5, 16);
       addFence('corner_se', 23, 5, 16);
 
       // 3. Cattle Pasture Enclosure

@@ -245,12 +245,15 @@ export default function App() {
     try {
       const res = await api.collectEgg(eggId, eggX, eggY);
       if (res.success) {
-        audio.playHarvest(res.egg.quality || 'normal');
-        const qualityColor = res.egg.quality === 'gold' ? '#facc15' : 
-                             res.egg.quality === 'silver' ? '#e2e8f0' : '#fde047';
+        audio.playHarvest(res.egg?.quality || 'normal');
+        const quality = res.egg?.quality || 'normal';
+        const qualityColor = quality === 'gold' ? '#facc15' : 
+                             quality === 'silver' ? '#e2e8f0' : '#fde047';
         if (engineRef.current) {
-          const worldX = eggX * 16 + 8;
-          const worldY = eggY * 16 + 8;
+          const safeX = (eggX !== undefined && !isNaN(eggX)) ? eggX : (res.egg?.x ?? 20);
+          const safeY = (eggY !== undefined && !isNaN(eggY)) ? eggY : (res.egg?.y ?? 4);
+          const worldX = safeX * 16 + 8;
+          const worldY = safeY * 16 + 8;
           engineRef.current.addFloatingText(`+1 Ovo Caipira!`, worldX, worldY, qualityColor);
           engineRef.current.addFloatingText(`+8 XP`, worldX, worldY - 12, '#38bdf8');
           engineRef.current.addParticleBurst(worldX, worldY, '#fffbeb', 12);
