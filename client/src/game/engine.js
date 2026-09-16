@@ -1862,6 +1862,22 @@ export class GameEngine {
               ctx.drawImage(img, srcX, srcY, 16, 16, animal.x, animal.y, 16, 16);
             }
             ctx.restore();
+
+            // Ready to collect egg bubble indicator if coop has accumulated eggs
+            const coopAcc = this.gameState?.facilities?.coop?.accumulated || 0;
+            if (animal.type === 'adult' && coopAcc > 0) {
+              const bob = Math.sin(Date.now() / 240) * 2;
+              ctx.font = '8px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+              ctx.beginPath();
+              ctx.arc(animal.x + 8, animal.y - 6 + bob, 6, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = '#f59e0b';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.fillText('🥚', animal.x + 8, animal.y - 3 + bob);
+            }
           }
         }
       });

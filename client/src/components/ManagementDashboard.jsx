@@ -201,22 +201,46 @@ export default function ManagementDashboard({
                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                   {runningPlotsCount} talhões em andamento • {readyPlotsCount} prontos para colheita
                 </span>
-                <button
-                  className="pixel-btn"
-                  onClick={onCollectAllPlots}
-                  disabled={readyPlotsCount === 0}
-                  style={{
-                    background: readyPlotsCount > 0 ? 'linear-gradient(180deg, #22c55e, #15803d)' : '#475569',
-                    color: '#fff',
-                    borderColor: readyPlotsCount > 0 ? '#166534' : '#334155',
-                    padding: '6px 12px',
-                    fontSize: '11px',
-                    opacity: readyPlotsCount > 0 ? 1 : 0.5,
-                    cursor: readyPlotsCount > 0 ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  🧺 Colher Todos os Prontos ({readyPlotsCount})
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {idlePlots.filter(p => p.status === 'AVAILABLE').length > 0 && !isWinter && (
+                    <button
+                      className="pixel-btn"
+                      onClick={() => {
+                        const available = idlePlots.filter(p => p.status === 'AVAILABLE');
+                        const defaultCrop = sortedCrops.find(c => inSeasonIds.has(c.id))?.id || 'strawberry';
+                        for (const p of available) {
+                          onStartPlot(p.id, selectedCropByPlot[p.id] || defaultCrop);
+                        }
+                      }}
+                      style={{
+                        background: 'linear-gradient(180deg, #2563eb, #1d4ed8)',
+                        color: '#fff',
+                        borderColor: '#1e40af',
+                        padding: '6px 12px',
+                        fontSize: '11px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🌱 Semear Todos Livres
+                    </button>
+                  )}
+                  <button
+                    className="pixel-btn"
+                    onClick={onCollectAllPlots}
+                    disabled={readyPlotsCount === 0}
+                    style={{
+                      background: readyPlotsCount > 0 ? 'linear-gradient(180deg, #22c55e, #15803d)' : '#475569',
+                      color: '#fff',
+                      borderColor: readyPlotsCount > 0 ? '#166534' : '#334155',
+                      padding: '6px 12px',
+                      fontSize: '11px',
+                      opacity: readyPlotsCount > 0 ? 1 : 0.5,
+                      cursor: readyPlotsCount > 0 ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    🧺 Colher Todos os Prontos ({readyPlotsCount})
+                  </button>
+                </div>
               </div>
 
               {/* 4 Plots Grid */}

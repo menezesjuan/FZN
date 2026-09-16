@@ -13,10 +13,11 @@ export default function HUD({
   onOpenMarket,
   onDevAdvanceTime,
   onDevRestoreEnergy,
-  onDevToggleWeather,
   isMuted,
   onToggleMute,
-  itemsConfig 
+  itemsConfig,
+  totalReadyHarvests = 0,
+  onHarvestAll
 }) {
   const [showDevTools, setShowDevTools] = React.useState(false);
 
@@ -108,6 +109,23 @@ export default function HUD({
           </div>
 
           <div className="pointer-events-auto" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {totalReadyHarvests > 0 && (
+              <button 
+                className="pixel-btn" 
+                onClick={onHarvestAll}
+                title="Colher toda a produção pronta da fazenda com 1 clique"
+                style={{ 
+                  background: 'linear-gradient(135deg, #15803d, #16a34a)', 
+                  borderColor: '#fde047', 
+                  color: '#fef08a',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)',
+                  fontSize: '12px'
+                }}
+              >
+                🌾 Colher Tudo ({totalReadyHarvests})
+              </button>
+            )}
             <button 
               className="pixel-btn" 
               onClick={onToggleMute} 

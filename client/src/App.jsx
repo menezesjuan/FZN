@@ -653,6 +653,46 @@ export default function App() {
     }
   };
 
+  // Quick Harvest All — Stardew Valley Idle Automation
+  const readyPlots = gameState?.idlePlots?.filter(
+    p => p.status === 'COMPLETED' || (p.status === 'RUNNING' && p.completedAt && Date.now() >= p.completedAt)
+  ) || [];
+  const coopReady = (gameState?.facilities?.coop?.accumulated || 0) > 0;
+  const barnReady = (gameState?.facilities?.barn?.accumulated || 0) > 0;
+  const readyProcessors = Object.entries(gameState?.processors || {}).filter(
+    ([, proc]) => proc.status === 'COMPLETED' || (proc.status === 'PROCESSING' && proc.completedAt && Date.now() >= proc.completedAt)
+  );
+  const totalReadyHarvests = readyPlots.length + (coopReady ? 1 : 0) + (barnReady ? 1 : 0) + readyProcessors.length;
+
+  const handleHarvestAll = async () => {
+    try {
+      let count = 0;
+      if (readyPlots.length > 0) {
+        await handleCollectAllPlots();
+        count += readyPlots.length;
+      }
+      if (coopReady) {
+        await handleCollectFacility('coop');
+        count++;
+      }
+      if (barnReady) {
+        await handleCollectFacility('barn');
+        count++;
+      }
+      for (const [procId] of readyProcessors) {
+        await handleCollectProcessor(procId);
+        count++;
+      }
+      if (count > 0) {
+        audio.playCoin();
+        showToast(`🌾 Toda a colheita da fazenda foi recolhida (${count} fontes)!`, "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   // ── Marketplace handlers ──
   const handleOpenMarket = useCallback(async () => {
     try {
@@ -776,6 +816,8 @@ export default function App() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         itemsConfig={itemsConfig}
+        totalReadyHarvests={totalReadyHarvests}
+        onHarvestAll={handleHarvestAll}
       />
 
       {/* Dynamic Quest & Onboarding Guide */}
