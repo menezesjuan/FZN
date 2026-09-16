@@ -10,6 +10,7 @@ import ShopModal from './components/ShopModal';
 import ChestModal from './components/ChestModal';
 import OfflineProgressModal from './components/OfflineProgressModal';
 import ManagementDashboard from './components/ManagementDashboard';
+import MarketModal from './components/MarketModal';
 import Toast from './components/Toast';
 
 export default function App() {
@@ -26,6 +27,9 @@ export default function App() {
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
   const [isOfflineReportOpen, setIsOfflineReportOpen] = useState(false);
+  const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [marketListings, setMarketListings] = useState([]);
+  const [myMarketListings, setMyMarketListings] = useState([]);
   const [isFading, setIsFading] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
   const [toast, setToast] = useState({ message: '', type: 'info' });
@@ -90,12 +94,15 @@ export default function App() {
         setIsShopOpen(prev => !prev);
       } else if (e.key === 'm' || e.key === 'M') {
         setIsManagementOpen(prev => !prev);
+      } else if (e.key === 'e' || e.key === 'E') {
+        setIsMarketOpen(prev => !prev);
       } else if (e.key === 'Escape') {
         setIsInventoryOpen(false);
         setIsShopOpen(false);
         setIsSleepModalOpen(false);
         setIsManagementOpen(false);
         setIsOfflineReportOpen(false);
+        setIsMarketOpen(false);
         setIsChestOpen(prev => {
           if (prev) audio.playChestClose();
           return false;
@@ -639,6 +646,72 @@ export default function App() {
     }
   };
 
+  // ── Marketplace handlers ──
+  const handleOpenMarket = useCallback(async () => {
+    try {
+      const [listRes, myRes] = await Promise.all([
+        api.getMarketListings(),
+        api.getMyListings()
+      ]);
+      setMarketListings(listRes.listings || []);
+      setMyMarketListings(myRes.listings || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [showToast]);
+
+  const handleRefreshMarket = useCallback(async () => {
+    try {
+      const [listRes, myRes] = await Promise.all([
+        api.getMarketListings(),
+        api.getMyListings()
+      ]);
+      setMarketListings(listRes.listings || []);
+      setMyMarketListings(myRes.listings || []);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [showToast]);
+
+  const handleBuyFromListing = async (listingId, quantity) => {
+    try {
+      const res = await api.buyFromListing(listingId, quantity);
+      if (res.success) {
+        showToast(`✅ ${res.message}`, 'success');
+        await loadState();
+        await handleRefreshMarket();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCreateListing = async (itemId, quantity, unitPrice, quality) => {
+    try {
+      const res = await api.createListing(itemId, quantity, unitPrice, quality);
+      if (res.success) {
+        showToast(`📦 ${res.message}`, 'success');
+        await loadState();
+        await handleRefreshMarket();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCancelListing = async (listingId) => {
+    try {
+      const res = await api.cancelListing(listingId);
+      if (res.success) {
+        showToast(`↩️ ${res.message}`, 'success');
+        await loadState();
+        await handleRefreshMarket();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
@@ -687,6 +760,7 @@ export default function App() {
         onOpenInventory={() => setIsInventoryOpen(true)}
         onOpenShop={() => setIsShopOpen(true)}
         onOpenManagement={() => setIsManagementOpen(prev => !prev)}
+        onOpenMarket={() => { setIsMarketOpen(prev => !prev); handleOpenMarket(); }}
         onDevAdvanceTime={handleDevAdvanceTime}
         onDevRestoreEnergy={handleDevRestoreEnergy}
         onDevToggleWeather={handleDevToggleWeather}
@@ -770,6 +844,21 @@ export default function App() {
         report={gameState?.offlineReport}
         onCollectAll={handleOfflineCollectAll}
         onClose={handleAcknowledgeOffline}
+      />
+
+      {/* Marketplace Modal */}
+      <MarketModal
+        isOpen={isMarketOpen}
+        onClose={() => setIsMarketOpen(false)}
+        listings={marketListings}
+        myListings={myMarketListings}
+        inventory={gameState?.inventory || []}
+        itemsConfig={itemsConfig}
+        playerMoney={gameState?.player?.money || 0}
+        onRefresh={handleRefreshMarket}
+        onBuy={handleBuyFromListing}
+        onCreateListing={handleCreateListing}
+        onCancelListing={handleCancelListing}
       />
     </div>
   );

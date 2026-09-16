@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const farmEngine = require('../src/services/farmEngine');
 const economyEngine = require('../src/services/economyEngine');
+const marketplaceEngine = require('../src/services/marketplaceEngine');
 
 test('FarmEngine: till, water, plant, and grow lifecycle', (t) => {
   const state = farmEngine.getState();
@@ -702,3 +703,178 @@ test('FarmEngine: Warehouse capacity and progressive upgrades', (t) => {
 });
 
 
+// =====================================================================
+// CICLO 12: Marketplace entre Jogadores
+// =====================================================================
+
+test('Marketplace: NPC listings exist after initialization', () => {
+  const listings = marketplaceEngine.getListings();
+  assert.ok(listings.length >= 5, 'Should have at least 5 NPC listings');
+  const npcListing = listings.find(l => l.sellerId !== 'player');
+  assert.ok(npcListing, 'At least one NPC listing should exist');
+  assert.ok(npcListing.itemId, 'NPC listing has an itemId');
+  assert.ok(npcListing.unitPrice > 0, 'NPC listing has a positive price');
+  assert.ok(['ACTIVE', 'PARTIALLY_SOLD'].includes(npcListing.status), 'NPC listing is active');
+});
+
+test('Marketplace: createListing — success with valid item in inventory', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+  // Add strawberries to inventory
+  farmEngine.addItemToInventory('crop_strawberry', 10, 'normal');
+  const invBefore = state.inventory.find(i => i.id === 'crop_strawberry' && i.quality === 'normal');
+  const qtyBefore = invBefore ? invBefore.quantity : 10;
+
+  const result = marketplaceEngine.createListing('crop_strawberry', 5, 60, 'normal');
+  assert.strictEqual(result.success, true);
+  assert.ok(result.listing, 'Listing returned');
+  assert.strictEqual(result.listing.itemId, 'crop_strawberry');
+  assert.strictEqual(result.listing.quantity, 5);
+  assert.strictEqual(result.listing.remainingQuantity, 5);
+  assert.strictEqual(result.listing.unitPrice, 60);
+  assert.strictEqual(result.listing.sellerId, 'player');
+  assert.strictEqual(result.listing.status, 'ACTIVE');
+
+  // Item should have been deducted from inventory
+  const invAfter = state.inventory.find(i => i.id === 'crop_strawberry' && i.quality === 'normal');
+  const qtyAfter = invAfter ? invAfter.quantity : 0;
+  assert.strictEqual(qtyAfter, qtyBefore - 5, 'Item deducted from inventory on listing creation');
+});
+
+test('Marketplace: createListing — fails if item quantity insufficient', () => {
+  const state = farmEngine.getState();
+  // Remove artisan_jam if present
+  const idx = state.inventory.findIndex(i => i.id === 'artisan_jam');
+  if (idx !== -1) state.inventory.splice(idx, 1);
+
+  assert.throws(() => {
+    marketplaceEngine.createListing('artisan_jam', 50, 100, 'normal');
+  }, /não possui/);
+});
+
+test('Marketplace: createListing — fails for tool category', () => {
+  assert.throws(() => {
+    marketplaceEngine.createListing('tool_hoe', 1, 50, 'normal');
+  }, /Ferramentas/);
+});
+
+test('Marketplace: buyFromListing — full purchase success with 5% fee', () => {
+  const state = farmEngine.getState();
+  // Find a NPC listing
+  const listings = marketplaceEngine.getListings();
+  const npcListing = listings.find(l => l.sellerId !== 'player');
+  assert.ok(npcListing, 'NPC listing must exist to test buying');
+
+  const buyQty = 2;
+  const subtotal = npcListing.unitPrice * buyQty;
+  const fee = Math.ceil(subtotal * 0.05);
+  const totalCost = subtotal + fee;
+
+  state.player.money = totalCost + 100; // ensure enough gold
+  const moneyBefore = state.player.money;
+
+  const result = marketplaceEngine.buyFromListing(npcListing.id, buyQty);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.purchased.quantity, buyQty);
+  assert.strictEqual(result.purchased.fee, fee);
+  assert.strictEqual(result.purchased.totalCost, totalCost);
+  assert.strictEqual(state.player.money, moneyBefore - totalCost, 'Gold deducted including fee');
+  // Item should be in inventory
+  const invItem = state.inventory.find(i => i.id === npcListing.itemId && i.quality === npcListing.quality);
+  assert.ok(invItem && invItem.quantity >= buyQty, 'Item added to inventory');
+});
+
+test('Marketplace: buyFromListing — partial buy updates remainingQuantity', () => {
+  const state = farmEngine.getState();
+  state.player.money = 50000;
+
+  const listings = marketplaceEngine.getListings();
+  // Find a large-quantity NPC listing
+  const npcListing = listings.find(l => l.sellerId !== 'player' && l.remainingQuantity >= 10);
+  assert.ok(npcListing, 'Large NPC listing must exist');
+
+  const buyQty = 1;
+  const qtyBefore = npcListing.remainingQuantity;
+
+  const result = marketplaceEngine.buyFromListing(npcListing.id, buyQty);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(npcListing.remainingQuantity, qtyBefore - buyQty, 'remainingQuantity decremented');
+  assert.ok(
+    npcListing.status === 'PARTIALLY_SOLD' || npcListing.status === 'SOLD',
+    'Listing status updated'
+  );
+});
+
+test('Marketplace: buyFromListing — fails with insufficient gold', () => {
+  const state = farmEngine.getState();
+  const listings = marketplaceEngine.getListings();
+  const npcListing = listings.find(l => l.sellerId !== 'player');
+  assert.ok(npcListing, 'NPC listing must exist');
+
+  state.player.money = 0; // no gold
+
+  assert.throws(() => {
+    marketplaceEngine.buyFromListing(npcListing.id, 1);
+  }, /insuficiente/);
+});
+
+test('Marketplace: buyFromListing — fails when buying own listing', () => {
+  const state = farmEngine.getState();
+  state.player.money = 50000;
+
+  // Create a player listing first
+  farmEngine.addItemToInventory('material_wood', 5, 'normal');
+  const createResult = marketplaceEngine.createListing('material_wood', 3, 10, 'normal');
+  const playerListingId = createResult.listing.id;
+
+  assert.throws(() => {
+    marketplaceEngine.buyFromListing(playerListingId, 1);
+  }, /próprio anúncio/);
+
+  // Cleanup: cancel it
+  marketplaceEngine.cancelListing(playerListingId);
+});
+
+test('Marketplace: cancelListing — returns items to inventory', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+
+  farmEngine.addItemToInventory('produce_egg', 8, 'normal');
+
+  const createResult = marketplaceEngine.createListing('produce_egg', 6, 40, 'normal');
+  const listingId = createResult.listing.id;
+
+  const invBeforeCancel = state.inventory.find(i => i.id === 'produce_egg' && i.quality === 'normal');
+  const qtyBeforeCancel = invBeforeCancel ? invBeforeCancel.quantity : 0;
+
+  const cancelResult = marketplaceEngine.cancelListing(listingId);
+  assert.strictEqual(cancelResult.success, true);
+  assert.strictEqual(cancelResult.returnedQuantity, 6);
+  assert.strictEqual(cancelResult.listing.status, 'CANCELLED');
+
+  const invAfterCancel = state.inventory.find(i => i.id === 'produce_egg' && i.quality === 'normal');
+  const qtyAfterCancel = invAfterCancel ? invAfterCancel.quantity : 0;
+  assert.strictEqual(qtyAfterCancel, qtyBeforeCancel + 6, 'Items returned to inventory on cancel');
+});
+
+test('Marketplace: getPlayerListings — returns only player listings', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+
+  // Clear existing player listings first
+  for (const l of marketplaceEngine.getPlayerListings()) {
+    if (l.status === 'ACTIVE' || l.status === 'PARTIALLY_SOLD') {
+      marketplaceEngine.cancelListing(l.id);
+    }
+  }
+
+  // Create one player listing
+  farmEngine.addItemToInventory('crop_potato', 5, 'normal');
+  marketplaceEngine.createListing('crop_potato', 3, 45, 'normal');
+
+  const playerListings = marketplaceEngine.getPlayerListings();
+  assert.ok(playerListings.length >= 1, 'Player has at least one listing');
+  for (const l of playerListings) {
+    assert.strictEqual(l.sellerId, 'player', 'All returned listings belong to player');
+  }
+});

@@ -51,5 +51,11 @@ export const api = {
   devSimulateOffline: (seconds = 120) => request('/dev/simulate-offline', { method: 'POST', body: JSON.stringify({ seconds }) }),
   startProcessor: (processorId) => request('/processors/start', { method: 'POST', body: JSON.stringify({ processorId }) }),
   collectProcessor: (processorId) => request('/processors/collect', { method: 'POST', body: JSON.stringify({ processorId }) }),
-  upgradeWarehouse: () => request('/warehouse/upgrade', { method: 'POST' })
+  upgradeWarehouse: () => request('/warehouse/upgrade', { method: 'POST' }),
+  // Marketplace
+  getMarketListings: (itemId) => request(`/market/listings${itemId ? `?itemId=${encodeURIComponent(itemId)}` : ''}`),
+  getMyListings: () => request('/market/my-listings'),
+  createListing: (itemId, quantity, unitPrice, quality) => request('/market/list', { method: 'POST', body: JSON.stringify({ itemId, quantity, unitPrice, quality }) }),
+  buyFromListing: (listingId, quantity) => request('/market/buy', { method: 'POST', body: JSON.stringify({ listingId, quantity }) }),
+  cancelListing: (listingId) => request('/market/cancel', { method: 'POST', body: JSON.stringify({ listingId }) })
 };

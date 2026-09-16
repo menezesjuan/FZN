@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const farmEngine = require('../services/farmEngine');
 const economyEngine = require('../services/economyEngine');
+const marketplaceEngine = require('../services/marketplaceEngine');
 const cropsConfig = require('../config/crops.json');
 const itemsConfig = require('../config/items.json');
 const processorsConfig = require('../config/processors.json');
@@ -367,6 +368,69 @@ router.post('/warehouse/upgrade', (req, res) => {
   try {
     const result = farmEngine.upgradeWarehouse();
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Marketplace: Get active listings (optionally filter by ?itemId=)
+router.get('/market/listings', (req, res) => {
+  try {
+    const itemId = req.query.itemId || null;
+    const listings = marketplaceEngine.getListings(itemId);
+    res.json({ success: true, listings });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Marketplace: Create a listing (sell)
+router.post('/market/list', (req, res) => {
+  try {
+    const { itemId, quantity, unitPrice, quality } = req.body;
+    if (!itemId || !quantity || !unitPrice) {
+      return res.status(400).json({ success: false, error: 'itemId, quantity e unitPrice são obrigatórios.' });
+    }
+    const result = marketplaceEngine.createListing(itemId, Number(quantity), Number(unitPrice), quality);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Marketplace: Buy from a listing
+router.post('/market/buy', (req, res) => {
+  try {
+    const { listingId, quantity } = req.body;
+    if (!listingId || !quantity) {
+      return res.status(400).json({ success: false, error: 'listingId e quantity são obrigatórios.' });
+    }
+    const result = marketplaceEngine.buyFromListing(listingId, Number(quantity));
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Marketplace: Cancel player's own listing
+router.post('/market/cancel', (req, res) => {
+  try {
+    const { listingId } = req.body;
+    if (!listingId) {
+      return res.status(400).json({ success: false, error: 'listingId é obrigatório.' });
+    }
+    const result = marketplaceEngine.cancelListing(listingId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Marketplace: Get player's own listings
+router.get('/market/my-listings', (req, res) => {
+  try {
+    const listings = marketplaceEngine.getPlayerListings();
+    res.json({ success: true, listings });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

@@ -10,6 +10,7 @@ export default function HUD({
   onOpenInventory, 
   onOpenShop,
   onOpenManagement,
+  onOpenMarket,
   onDevAdvanceTime,
   onDevRestoreEnergy,
   onDevToggleWeather,
@@ -128,6 +129,14 @@ export default function HUD({
               style={{ background: '#2563eb', borderColor: '#1d4ed8', color: '#fff' }}
             >
               🚜 Gestão
+            </button>
+            <button 
+              className="pixel-btn" 
+              onClick={onOpenMarket} 
+              title="Mercado Global — Comprar e Vender (E)"
+              style={{ background: '#7c3aed', borderColor: '#5b21b6', color: '#fff' }}
+            >
+              🏪 Mercado
             </button>
             <button 
               className="pixel-btn" 
