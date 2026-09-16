@@ -17,6 +17,7 @@ export default function App() {
   const [catalog, setCatalog] = useState([]);
   const [itemsConfig, setItemsConfig] = useState(null);
   const [cropsConfig, setCropsConfig] = useState(null);
+  const [processorsConfig, setProcessorsConfig] = useState(null);
 
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -65,6 +66,7 @@ export default function App() {
       setCatalog(data.catalog || []);
       setItemsConfig(data.itemsConfig || null);
       setCropsConfig(data.cropsConfig || null);
+      setProcessorsConfig(data.processorsConfig || null);
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -575,6 +577,18 @@ export default function App() {
         } catch (_) {}
       }
 
+      // Collect any completed processors
+      if (gameState?.processors) {
+        for (const [pId, proc] of Object.entries(gameState.processors)) {
+          if (proc.status === 'COMPLETED' || (proc.status === 'PROCESSING' && proc.completedAt && Date.now() >= proc.completedAt)) {
+            try {
+              await api.collectProcessor(pId);
+              anyCollected = true;
+            } catch (_) {}
+          }
+        }
+      }
+
       await api.acknowledgeOfflineReport();
       setIsOfflineReportOpen(false);
       audio.playHarvest('gold');
@@ -583,6 +597,45 @@ export default function App() {
     } catch (err) {
       showToast(err.message, 'error');
       setIsOfflineReportOpen(false);
+    }
+  };
+
+  const handleStartProcessor = async (processorId) => {
+    try {
+      const res = await api.startProcessor(processorId);
+      if (res.success) {
+        audio.playPlant();
+        showToast("Processamento artesanal iniciado!", "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleCollectProcessor = async (processorId) => {
+    try {
+      const res = await api.collectProcessor(processorId);
+      if (res.success) {
+        audio.playHarvest('gold');
+        showToast(`Recolheu 1x ${res.collected.name}! (+${res.collected.xpGained} XP)`, "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleUpgradeWarehouse = async () => {
+    try {
+      const res = await api.upgradeWarehouse();
+      if (res.success) {
+        audio.playLevelUp();
+        showToast(`🎉 Armazém expandido para o Nível ${res.warehouse.level} (${res.warehouse.capacity} slots)!`, "success");
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, "error");
     }
   };
 
@@ -695,13 +748,20 @@ export default function App() {
         onClose={() => setIsManagementOpen(false)}
         idlePlots={gameState?.idlePlots || []}
         facilities={gameState?.facilities || {}}
+        processors={gameState?.processors || {}}
+        warehouse={gameState?.warehouse || {}}
+        inventory={gameState?.inventory || []}
         cropsConfig={cropsConfig || {}}
+        processorsConfig={processorsConfig || {}}
         playerMoney={gameState?.player?.money || 0}
         stats={gameState?.stats || {}}
         onStartPlot={handleStartPlot}
         onCollectPlot={handleCollectPlot}
         onCollectAllPlots={handleCollectAllPlots}
         onCollectFacility={handleCollectFacility}
+        onStartProcessor={handleStartProcessor}
+        onCollectProcessor={handleCollectProcessor}
+        onUpgradeWarehouse={handleUpgradeWarehouse}
       />
 
       {/* Welcome Back / Offline Progress Modal */}

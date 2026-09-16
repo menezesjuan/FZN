@@ -14,7 +14,8 @@ export default function OfflineProgressModal({ isOpen, report, onCollectAll, onC
 
   const completedPlots = report.completedPlots || [];
   const facilityYields = report.facilityYields || [];
-  const hasProduce = completedPlots.length > 0 || facilityYields.length > 0;
+  const processorYields = report.processorYields || [];
+  const hasProduce = completedPlots.length > 0 || facilityYields.length > 0 || processorYields.length > 0;
 
   return (
     <div style={{
@@ -143,6 +144,55 @@ export default function OfflineProgressModal({ isOpen, report, onCollectAll, onC
                         fontWeight: 'bold'
                       }}>
                         +{fac.quantity} acumulados
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Processor yields */}
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.35)',
+            borderRadius: '6px',
+            padding: '12px',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <h3 className="font-pixel" style={{ fontSize: '11px', color: '#f59e0b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚙️</span> Produtos Artesanais Finalizados ({processorYields.length})
+            </h3>
+            {processorYields.length === 0 ? (
+              <p style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', margin: 0 }}>
+                Nenhuma máquina artesanal finalizou ciclo durante a ausência.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {processorYields.map((proc, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '6px 10px',
+                    borderRadius: '4px'
+                  }}>
+                    <div>
+                      <strong style={{ color: '#fed7aa', fontSize: '12px' }}>{proc.processorName}</strong>
+                      <span style={{ fontSize: '11px', color: '#fde68a', marginLeft: '6px' }}>
+                        ➔ {proc.outputName}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{
+                        background: '#b45309',
+                        color: '#fffbeb',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        fontWeight: 'bold'
+                      }}>
+                        +{proc.quantity} pronto
                       </span>
                     </div>
                   </div>

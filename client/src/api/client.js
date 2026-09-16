@@ -48,5 +48,8 @@ export const api = {
   collectAllPlots: () => request('/idle/collect-all', { method: 'POST' }),
   collectFacility: (facilityId) => request('/idle/collect-facility', { method: 'POST', body: JSON.stringify({ facilityId }) }),
   acknowledgeOfflineReport: () => request('/idle/acknowledge-offline', { method: 'POST' }),
-  devSimulateOffline: (seconds = 120) => request('/dev/simulate-offline', { method: 'POST', body: JSON.stringify({ seconds }) })
+  devSimulateOffline: (seconds = 120) => request('/dev/simulate-offline', { method: 'POST', body: JSON.stringify({ seconds }) }),
+  startProcessor: (processorId) => request('/processors/start', { method: 'POST', body: JSON.stringify({ processorId }) }),
+  collectProcessor: (processorId) => request('/processors/collect', { method: 'POST', body: JSON.stringify({ processorId }) }),
+  upgradeWarehouse: () => request('/warehouse/upgrade', { method: 'POST' })
 };

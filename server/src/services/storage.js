@@ -129,6 +129,44 @@ function getDefaultGameState() {
         produceName: "Leite Fresco Caipira"
       }
     },
+    processors: {
+      cheese_press: {
+        id: "cheese_press",
+        status: "IDLE",
+        startedAt: null,
+        durationMs: 90000,
+        completedAt: null,
+        inputItem: null,
+        outputItem: null
+      },
+      mayo_machine: {
+        id: "mayo_machine",
+        status: "IDLE",
+        startedAt: null,
+        durationMs: 60000,
+        completedAt: null,
+        inputItem: null,
+        outputItem: null
+      },
+      preserves_jar: {
+        id: "preserves_jar",
+        status: "IDLE",
+        startedAt: null,
+        durationMs: 100000,
+        completedAt: null,
+        inputItem: null,
+        outputItem: null
+      }
+    },
+    warehouse: {
+      level: 1,
+      capacity: 40,
+      maxLevel: 3,
+      upgrades: {
+        2: { cost: 400, woodCost: 25, capacity: 80, name: "Armazém Ampliado" },
+        3: { cost: 1000, woodCost: 60, capacity: 160, name: "Complexo Logístico Rural" }
+      }
+    },
     lastSaved: Date.now()
   };
 }
@@ -243,6 +281,48 @@ class StorageService {
         }
         if (state.offlineReport === undefined) {
           state.offlineReport = null;
+        }
+        if (!state.processors) {
+          state.processors = {
+            cheese_press: {
+              id: "cheese_press",
+              status: "IDLE",
+              startedAt: null,
+              durationMs: 90000,
+              completedAt: null,
+              inputItem: null,
+              outputItem: null
+            },
+            mayo_machine: {
+              id: "mayo_machine",
+              status: "IDLE",
+              startedAt: null,
+              durationMs: 60000,
+              completedAt: null,
+              inputItem: null,
+              outputItem: null
+            },
+            preserves_jar: {
+              id: "preserves_jar",
+              status: "IDLE",
+              startedAt: null,
+              durationMs: 100000,
+              completedAt: null,
+              inputItem: null,
+              outputItem: null
+            }
+          };
+        }
+        if (!state.warehouse) {
+          state.warehouse = {
+            level: 1,
+            capacity: 40,
+            maxLevel: 3,
+            upgrades: {
+              2: { cost: 400, woodCost: 25, capacity: 80, name: "Armazém Ampliado" },
+              3: { cost: 1000, woodCost: 60, capacity: 160, name: "Complexo Logístico Rural" }
+            }
+          };
         }
         return state;
       }

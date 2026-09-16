@@ -4,6 +4,7 @@ const farmEngine = require('../services/farmEngine');
 const economyEngine = require('../services/economyEngine');
 const cropsConfig = require('../config/crops.json');
 const itemsConfig = require('../config/items.json');
+const processorsConfig = require('../config/processors.json');
 
 // Get current authoritative state
 router.get('/state', (req, res) => {
@@ -15,7 +16,8 @@ router.get('/state', (req, res) => {
       state,
       catalog,
       cropsConfig,
-      itemsConfig
+      itemsConfig,
+      processorsConfig
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -327,6 +329,44 @@ router.post('/dev/simulate-offline', (req, res) => {
     const seconds = Number(req.body.seconds) || 120;
     farmEngine.processOfflineProgress(seconds * 1000);
     res.json({ success: true, state: farmEngine.getState() });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Processors: Start machine processing
+router.post('/processors/start', (req, res) => {
+  try {
+    const { processorId } = req.body;
+    if (!processorId) {
+      return res.status(400).json({ success: false, error: "processorId é obrigatório." });
+    }
+    const result = farmEngine.startProcessor(processorId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Processors: Collect processed artisan output
+router.post('/processors/collect', (req, res) => {
+  try {
+    const { processorId } = req.body;
+    if (!processorId) {
+      return res.status(400).json({ success: false, error: "processorId é obrigatório." });
+    }
+    const result = farmEngine.collectProcessor(processorId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Warehouse: Upgrade storage level
+router.post('/warehouse/upgrade', (req, res) => {
+  try {
+    const result = farmEngine.upgradeWarehouse();
+    res.json(result);
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

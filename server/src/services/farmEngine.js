@@ -1,5 +1,6 @@
 const cropsConfig = require('../config/crops.json');
 const itemsConfig = require('../config/items.json');
+const processorsConfig = require('../config/processors.json');
 const storage = require('./storage');
 
 class FarmEngine {
@@ -905,6 +906,15 @@ class FarmEngine {
       }
     }
 
+    if (this.state.processors) {
+      for (const [procKey, proc] of Object.entries(this.state.processors)) {
+        if (proc.status === 'PROCESSING' && proc.completedAt && now >= proc.completedAt) {
+          proc.status = 'COMPLETED';
+          changed = true;
+        }
+      }
+    }
+
     this.state.lastActive = now;
     if (changed) {
       this.save();
@@ -955,12 +965,32 @@ class FarmEngine {
         }
       }
 
-      if (completedPlots.length > 0 || facilityYields.length > 0 || timeAway >= 60000) {
+      const processorYields = [];
+      if (this.state.processors) {
+        for (const [procKey, proc] of Object.entries(this.state.processors)) {
+          if (proc.status === 'PROCESSING') {
+            if (proc.completedAt && now >= proc.completedAt) {
+              proc.status = 'COMPLETED';
+              const pDef = processorsConfig[procKey];
+              processorYields.push({
+                processorId: proc.id,
+                processorName: pDef?.name || proc.id,
+                outputItemId: proc.outputItem?.id || pDef?.output?.itemId,
+                outputName: proc.outputItem?.name || pDef?.output?.name,
+                quantity: proc.outputItem?.quantity || pDef?.output?.quantity || 1
+              });
+            }
+          }
+        }
+      }
+
+      if (completedPlots.length > 0 || facilityYields.length > 0 || processorYields.length > 0 || timeAway >= 60000) {
         this.state.offlineReport = {
           timeAwayMs: timeAway,
           timeAwaySeconds: Math.floor(timeAway / 1000),
           completedPlots,
           facilityYields,
+          processorYields,
           timestamp: now
         };
       }
@@ -1181,6 +1211,162 @@ class FarmEngine {
       facilities: this.state.facilities,
       inventory: this.state.inventory,
       player: this.state.player
+    };
+  }
+
+  startProcessor(processorId) {
+    this.updateIdleProduction();
+    if (!this.state.processors || !this.state.processors[processorId]) {
+      throw new Error(`Processador "${processorId}" não encontrado.`);
+    }
+    const proc = this.state.processors[processorId];
+    if (proc.status === 'PROCESSING') {
+      throw new Error(`Esta máquina já está em processamento ativo.`);
+    }
+    if (proc.status === 'COMPLETED') {
+      throw new Error(`Colete o produto pronto antes de iniciar uma nova receita.`);
+    }
+    const pDef = processorsConfig[processorId];
+    if (!pDef) {
+      throw new Error(`Receita para "${processorId}" não configurada.`);
+    }
+    const requiredItemId = pDef.input.itemId;
+    const requiredQty = pDef.input.quantity || 1;
+
+    // Find items in player inventory
+    const matchingInvItem = this.state.inventory.find(i => i.id === requiredItemId && i.quantity >= requiredQty);
+    if (!matchingInvItem) {
+      throw new Error(`Insumo insuficiente: você precisa de ${requiredQty}x ${pDef.input.name}.`);
+    }
+
+    // Deduct input from inventory
+    matchingInvItem.quantity -= requiredQty;
+    if (matchingInvItem.quantity <= 0) {
+      const idx = this.state.inventory.indexOf(matchingInvItem);
+      if (idx !== -1) this.state.inventory.splice(idx, 1);
+    }
+
+    const now = Date.now();
+    const durationMs = (pDef.durationSeconds || 60) * 1000;
+    proc.status = 'PROCESSING';
+    proc.startedAt = now;
+    proc.durationMs = durationMs;
+    proc.completedAt = now + durationMs;
+    proc.inputItem = { id: requiredItemId, quantity: requiredQty, name: pDef.input.name };
+    proc.outputItem = { id: pDef.output.itemId, quantity: pDef.output.quantity, name: pDef.output.name };
+
+    this.save();
+    return {
+      success: true,
+      processor: proc,
+      processors: this.state.processors,
+      inventory: this.state.inventory
+    };
+  }
+
+  collectProcessor(processorId) {
+    this.updateIdleProduction();
+    if (!this.state.processors || !this.state.processors[processorId]) {
+      throw new Error(`Processador "${processorId}" não encontrado.`);
+    }
+    const proc = this.state.processors[processorId];
+    const now = Date.now();
+
+    if (proc.status !== 'COMPLETED') {
+      if (proc.status === 'PROCESSING' && proc.completedAt && now >= proc.completedAt) {
+        proc.status = 'COMPLETED';
+      } else {
+        const rem = proc.completedAt ? Math.max(0, Math.ceil((proc.completedAt - now) / 1000)) : 0;
+        throw new Error(`O processamento ainda está em andamento (${rem}s restantes).`);
+      }
+    }
+
+    const pDef = processorsConfig[processorId];
+    const outputId = proc.outputItem?.id || pDef.output.itemId;
+    const outputQty = proc.outputItem?.quantity || pDef.output.quantity || 1;
+    const outputName = proc.outputItem?.name || pDef.output.name;
+    const xp = pDef.output.xp || 25;
+
+    this.addItemToInventory(outputId, outputQty, 'normal');
+    this.addPlayerXP(xp);
+
+    const collected = {
+      processorId,
+      outputId,
+      name: outputName,
+      quantity: outputQty,
+      xpGained: xp
+    };
+
+    proc.status = 'IDLE';
+    proc.startedAt = null;
+    proc.durationMs = (pDef.durationSeconds || 60) * 1000;
+    proc.completedAt = null;
+    proc.inputItem = null;
+    proc.outputItem = null;
+
+    this.save();
+    return {
+      success: true,
+      collected,
+      processor: proc,
+      processors: this.state.processors,
+      inventory: this.state.inventory,
+      player: this.state.player
+    };
+  }
+
+  upgradeWarehouse() {
+    if (!this.state.warehouse) {
+      this.state.warehouse = {
+        level: 1,
+        capacity: 40,
+        maxLevel: 3,
+        upgrades: {
+          2: { cost: 400, woodCost: 25, capacity: 80, name: "Armazém Ampliado" },
+          3: { cost: 1000, woodCost: 60, capacity: 160, name: "Complexo Logístico Rural" }
+        }
+      };
+    }
+
+    const nextLevel = this.state.warehouse.level + 1;
+    if (nextLevel > this.state.warehouse.maxLevel) {
+      throw new Error("O armazém já atingiu o nível máximo de expansão.");
+    }
+
+    const upg = this.state.warehouse.upgrades[nextLevel];
+    if (!upg) {
+      throw new Error(`Melhoria de nível ${nextLevel} não encontrada.`);
+    }
+
+    if ((this.state.player.money || 0) < upg.cost) {
+      throw new Error(`Ouro insuficiente para expandir o armazém (Necessário: ${upg.cost}G, Possui: ${this.state.player.money}G).`);
+    }
+
+    const woodItem = this.state.inventory.find(i => i.id === 'material_wood');
+    const currentWood = woodItem ? woodItem.quantity : 0;
+    if (currentWood < upg.woodCost) {
+      throw new Error(`Madeira insuficiente (Necessário: ${upg.woodCost} toras, Possui: ${currentWood}).`);
+    }
+
+    // Deduct resources
+    this.state.player.money -= upg.cost;
+    woodItem.quantity -= upg.woodCost;
+    if (woodItem.quantity <= 0) {
+      const idx = this.state.inventory.indexOf(woodItem);
+      if (idx !== -1) this.state.inventory.splice(idx, 1);
+    }
+
+    this.state.warehouse.level = nextLevel;
+    this.state.warehouse.capacity = upg.capacity;
+    this.addPlayerXP(120);
+
+    this.save();
+    return {
+      success: true,
+      warehouse: this.state.warehouse,
+      player: this.state.player,
+      inventory: this.state.inventory
     };
   }
 }

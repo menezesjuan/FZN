@@ -125,6 +125,27 @@
       "category": "produce",
       "baseSellPrice": 65,
       "description": "Leite puro e cremoso, recém-ordenhado da vaca da fazenda."
+    },
+    "artisan_cheese": {
+      "id": "artisan_cheese",
+      "name": "Queijo Curado da Fazenda",
+      "category": "artisan",
+      "baseSellPrice": 145,
+      "description": "Queijo artesanal de sabor marcante, prensado a partir de leite fresco."
+    },
+    "artisan_mayo": {
+      "id": "artisan_mayo",
+      "name": "Maionese Caipira Especial",
+      "category": "artisan",
+      "baseSellPrice": 85,
+      "description": "Emulsão cremosa e dourada produzida a partir de ovos caipiras frescos."
+    },
+    "artisan_jam": {
+      "id": "artisan_jam",
+      "name": "Geléia Real de Morango",
+      "category": "artisan",
+      "baseSellPrice": 170,
+      "description": "Compota doce e aveludada preparada lentamente no tacho da fazenda."
     }
   },
   "qualities": {

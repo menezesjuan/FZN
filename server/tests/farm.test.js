@@ -474,10 +474,13 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   assert.strictEqual(state.stats.cropsHarvested, initialHarvested + 16);
 
   // 4. Batch collect all ready plots
+  state.idlePlots.forEach(p => {
+    p.status = 'AVAILABLE';
+    p.cropId = null;
+    p.completedAt = null;
+  });
   const plot2 = state.idlePlots[1];
   const plot3 = state.idlePlots[2];
-  plot2.status = 'AVAILABLE';
-  plot3.status = 'AVAILABLE';
   state.player.gold = 200;
 
   farmEngine.startPlotProduction(2, 'strawberry');
@@ -557,4 +560,145 @@ test('FarmEngine: Automated facilities (coop and barn) accumulation and harvesti
   assert.strictEqual(state.facilities.barn.currentYield, 0);
   assert.strictEqual(state.stats.milkProduced, initialMilk + 5);
 });
+
+test('FarmEngine: Artisan processors (cheese press, mayo machine, preserves jar) lifecycle', (t) => {
+  const state = farmEngine.getState();
+  assert.ok(state.processors, 'Processors object exists');
+  assert.ok(state.processors.cheese_press, 'Cheese press exists');
+  assert.ok(state.processors.mayo_machine, 'Mayo machine exists');
+  assert.ok(state.processors.preserves_jar, 'Preserves jar exists');
+
+  // Reset processor states
+  state.processors.cheese_press.status = 'IDLE';
+  state.processors.mayo_machine.status = 'IDLE';
+  state.processors.preserves_jar.status = 'IDLE';
+
+  // Add required raw ingredients to inventory
+  farmEngine.addItemToInventory('produce_milk', 2, 'normal');
+  farmEngine.addItemToInventory('produce_egg', 3, 'normal');
+  farmEngine.addItemToInventory('crop_strawberry', 5, 'normal');
+
+  // 1. Start cheese press
+  const cheeseRes = farmEngine.startProcessor('cheese_press');
+  assert.strictEqual(cheeseRes.success, true);
+  assert.strictEqual(state.processors.cheese_press.status, 'PROCESSING');
+  assert.strictEqual(state.processors.cheese_press.inputItem.id, 'produce_milk');
+
+  // 2. Start mayo machine
+  const mayoRes = farmEngine.startProcessor('mayo_machine');
+  assert.strictEqual(mayoRes.success, true);
+  assert.strictEqual(state.processors.mayo_machine.status, 'PROCESSING');
+
+  // 3. Start preserves jar (requires 2 strawberries)
+  const strawberryCountBefore = state.inventory.find(i => i.id === 'crop_strawberry').quantity;
+  const jarRes = farmEngine.startProcessor('preserves_jar');
+  assert.strictEqual(jarRes.success, true);
+  assert.strictEqual(state.processors.preserves_jar.status, 'PROCESSING');
+  assert.strictEqual(state.inventory.find(i => i.id === 'crop_strawberry').quantity, strawberryCountBefore - 2);
+
+  // Advance time to complete all 3
+  state.processors.cheese_press.completedAt = Date.now() - 1000;
+  state.processors.mayo_machine.completedAt = Date.now() - 1000;
+  state.processors.preserves_jar.completedAt = Date.now() - 1000;
+
+  farmEngine.updateIdleProduction();
+  assert.strictEqual(state.processors.cheese_press.status, 'COMPLETED');
+  assert.strictEqual(state.processors.mayo_machine.status, 'COMPLETED');
+  assert.strictEqual(state.processors.preserves_jar.status, 'COMPLETED');
+
+  // 4. Collect processed outputs
+  const collectCheese = farmEngine.collectProcessor('cheese_press');
+  assert.strictEqual(collectCheese.success, true);
+  assert.strictEqual(collectCheese.collected.outputId, 'artisan_cheese');
+  assert.strictEqual(state.processors.cheese_press.status, 'IDLE');
+  assert.ok(state.inventory.some(i => i.id === 'artisan_cheese'), 'Cheese in inventory');
+
+  const collectMayo = farmEngine.collectProcessor('mayo_machine');
+  assert.strictEqual(collectMayo.success, true);
+  assert.strictEqual(collectMayo.collected.outputId, 'artisan_mayo');
+  assert.ok(state.inventory.some(i => i.id === 'artisan_mayo'), 'Mayo in inventory');
+
+  const collectJam = farmEngine.collectProcessor('preserves_jar');
+  assert.strictEqual(collectJam.success, true);
+  assert.strictEqual(collectJam.collected.outputId, 'artisan_jam');
+  assert.ok(state.inventory.some(i => i.id === 'artisan_jam'), 'Jam in inventory');
+
+  // 5. Verify selling artisan product in EconomyEngine (Base 145G)
+  const cheeseItem = state.inventory.find(i => i.id === 'artisan_cheese');
+  const moneyBefore = state.player.money;
+  const sellRes = economyEngine.sellItem(cheeseItem.slot, 1);
+  assert.strictEqual(sellRes.success, true);
+  assert.strictEqual(sellRes.sold.totalPrice, 145);
+  assert.strictEqual(state.player.money, moneyBefore + 145);
+});
+
+test('FarmEngine: Offline processor completion and report generation', (t) => {
+  const state = farmEngine.getState();
+  state.processors.mayo_machine.status = 'IDLE';
+  farmEngine.addItemToInventory('produce_egg', 1, 'normal');
+
+  farmEngine.startProcessor('mayo_machine');
+  assert.strictEqual(state.processors.mayo_machine.status, 'PROCESSING');
+
+  // Simulate 10 minutes ago
+  const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+  state.lastActive = tenMinutesAgo;
+  state.processors.mayo_machine.startedAt = tenMinutesAgo;
+  state.processors.mayo_machine.completedAt = tenMinutesAgo + 60000;
+  state.offlineReport = null;
+
+  farmEngine.processOfflineProgress();
+
+  assert.ok(state.offlineReport, 'Offline report generated');
+  assert.ok(state.offlineReport.processorYields, 'Processor yields exist in report');
+  assert.ok(state.offlineReport.processorYields.some(p => p.processorId === 'mayo_machine'), 'Mayo completed offline');
+  assert.strictEqual(state.processors.mayo_machine.status, 'COMPLETED');
+
+  farmEngine.acknowledgeOfflineReport();
+  assert.strictEqual(state.offlineReport, null);
+});
+
+test('FarmEngine: Warehouse capacity and progressive upgrades', (t) => {
+  const state = farmEngine.getState();
+  assert.ok(state.warehouse, 'Warehouse exists');
+  state.warehouse.level = 1;
+  state.warehouse.capacity = 40;
+
+  // Attempt upgrade without sufficient resources
+  state.player.money = 0;
+  assert.throws(() => {
+    farmEngine.upgradeWarehouse();
+  }, /Ouro insuficiente/);
+
+  // Give gold but no wood
+  state.player.money = 500;
+  const woodInInv = state.inventory.find(i => i.id === 'material_wood');
+  if (woodInInv) woodInInv.quantity = 0;
+
+  assert.throws(() => {
+    farmEngine.upgradeWarehouse();
+  }, /Madeira insuficiente/);
+
+  // Give required 25 wood for Level 2 (cost 400G)
+  farmEngine.addItemToInventory('material_wood', 30, 'normal');
+  const upg2Res = farmEngine.upgradeWarehouse();
+  assert.strictEqual(upg2Res.success, true);
+  assert.strictEqual(state.warehouse.level, 2);
+  assert.strictEqual(state.warehouse.capacity, 80);
+  assert.strictEqual(state.player.money, 100); // 500 - 400 = 100
+
+  // Upgrade to Level 3 (cost 1000G + 60 wood -> 160 capacity)
+  state.player.money = 1200;
+  farmEngine.addItemToInventory('material_wood', 60, 'normal');
+  const upg3Res = farmEngine.upgradeWarehouse();
+  assert.strictEqual(upg3Res.success, true);
+  assert.strictEqual(state.warehouse.level, 3);
+  assert.strictEqual(state.warehouse.capacity, 160);
+
+  // Attempt upgrade past maximum level
+  assert.throws(() => {
+    farmEngine.upgradeWarehouse();
+  }, /nível máximo de expansão/);
+});
+
 
