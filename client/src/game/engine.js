@@ -1019,9 +1019,13 @@ export class GameEngine {
 
       if (worldWidth > halfViewW * 2) {
         this.camera.x = Math.max(halfViewW, Math.min(worldWidth - halfViewW, this.camera.x));
+      } else {
+        this.camera.x = worldWidth / 2;
       }
       if (worldHeight > halfViewH * 2) {
         this.camera.y = Math.max(halfViewH, Math.min(worldHeight - halfViewH, this.camera.y));
+      } else {
+        this.camera.y = worldHeight / 2;
       }
 
       // Outdoor door proximity
@@ -1156,16 +1160,16 @@ export class GameEngine {
     if (this.location === 'house_interior') {
       this.renderHouseInterior(ctx);
     } else {
+      // 0.5 Draw Surrounding Forest & Backdrop
+      this.renderSurroundingForest(ctx);
+
       // 1. Draw Farm Ground (Grass, Tilled soil, Watered highlight, Stone paths)
       this.renderFarmGround(ctx);
 
       // 1.5 Draw Idle Cultivation Plots Ground
       this.renderIdlePlotsGround(ctx);
 
-      // 2. Draw Fences (Perimeter and decor)
-      this.renderFences(ctx);
-
-      // 3. Draw Depth-Sorted Entities (Y-Sorting: Character, House, Trees, Chest, Crops)
+      // 2. Draw Depth-Sorted Entities (Y-Sorting: Character, Fences, House, Trees, Chest, Crops, Animals)
       this.renderDepthSortedEntities(ctx);
 
       // 4. Draw Tile Selection Highlight
@@ -1196,6 +1200,70 @@ export class GameEngine {
     ctx.restore();
   }
 
+  isInsideIdlePlot(x, y) {
+    if (!this.gameState || !this.gameState.idlePlots) return false;
+    for (const plot of this.gameState.idlePlots) {
+      if (x >= plot.bounds.x1 && x <= plot.bounds.x2 && y >= plot.bounds.y1 && y <= plot.bounds.y2) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  renderSurroundingForest(ctx) {
+    const tileset = this.images.tileset;
+    const treeImg = this.images.tree;
+    const farmW = this.gameState?.farm?.width || 24;
+    const farmH = this.gameState?.farm?.height || 18;
+
+    // Outer margin expansion (-6 to farmW + 6, -5 to farmH + 5)
+    const minX = -6;
+    const maxX = farmW + 6;
+    const minY = -5;
+    const maxY = farmH + 5;
+
+    // 1. Draw outer lush grass backdrop so no empty blank/void background is visible
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        // Skip inside main farm boundaries (drawn in renderFarmGround)
+        if (x >= 0 && x < farmW && y >= 0 && y < farmH) continue;
+
+        const screenX = x * TILE_SIZE;
+        const screenY = y * TILE_SIZE;
+
+        if (tileset) {
+          ctx.drawImage(tileset, 16, 16, 16, 16, screenX, screenY, TILE_SIZE, TILE_SIZE);
+        } else {
+          ctx.fillStyle = ((x + y) % 2 === 0) ? '#4d8a28' : '#55942d';
+          ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+
+    // 2. Dense boundary forest trees (Stardew Valley mountain & forest borders)
+    if (treeImg) {
+      // Top northern forest border
+      for (let x = minX + 1; x <= maxX - 1; x += 2) {
+        ctx.drawImage(treeImg, 96, 0, 32, 48, x * TILE_SIZE - 8, -48, 32, 48);
+        ctx.drawImage(treeImg, 96, 0, 32, 48, (x + 1) * TILE_SIZE - 8, -32, 32, 48);
+      }
+      // Western forest border
+      for (let y = 0; y <= farmH + 2; y += 2) {
+        ctx.drawImage(treeImg, 96, 0, 32, 48, -48, y * TILE_SIZE - 20, 32, 48);
+        ctx.drawImage(treeImg, 96, 0, 32, 48, -32, (y + 1) * TILE_SIZE - 20, 32, 48);
+      }
+      // Southern forest border
+      for (let x = minX + 1; x <= maxX - 1; x += 2) {
+        ctx.drawImage(treeImg, 96, 0, 32, 48, x * TILE_SIZE - 8, farmH * TILE_SIZE + 4, 32, 48);
+      }
+      // Eastern forest border behind pastures
+      for (let y = 0; y <= farmH + 2; y += 2) {
+        ctx.drawImage(treeImg, 96, 0, 32, 48, farmW * TILE_SIZE + 8, y * TILE_SIZE - 16, 32, 48);
+        ctx.drawImage(treeImg, 96, 0, 32, 48, farmW * TILE_SIZE + 24, (y + 1) * TILE_SIZE - 16, 32, 48);
+      }
+    }
+  }
+
   renderFarmGround(ctx) {
     if (!this.gameState) return;
 
@@ -1209,6 +1277,17 @@ export class GameEngine {
         const tile = farm.tiles[key];
         const screenX = x * TILE_SIZE;
         const screenY = y * TILE_SIZE;
+
+        // If covered by an elevated Idle Plot, render clean grass foundation only
+        if (this.isInsideIdlePlot(x, y)) {
+          if (tileset) {
+            ctx.drawImage(tileset, 16, 16, 16, 16, screenX, screenY, TILE_SIZE, TILE_SIZE);
+          } else {
+            ctx.fillStyle = '#5c9e31';
+            ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+          }
+          continue;
+        }
 
         if (tile && tile.state === 'tilled') {
           // Tilled soil base
@@ -1313,91 +1392,74 @@ export class GameEngine {
   }
 
   renderFences(ctx) {
-    const fenceImg = this.images.fence;
-    if (!fenceImg) return;
-
-    // Helper to draw 16x16 fence piece from Fence's copiar.png (48x80 = 3 cols x 5 rows)
-    const drawPiece = (piece, tileX, tileY) => {
-      let sx = 16, sy = 32;
-      switch (piece) {
-        case 'corner_nw':     sx = 0;  sy = 0;  break; // top-left corner
-        case 'horizontal_t':  sx = 16; sy = 0;  break; // top horizontal rail
-        case 'corner_ne':     sx = 32; sy = 0;  break; // top-right corner
-        case 'vertical_w':    sx = 0;  sy = 16; break; // west vertical post
-        case 'vertical_e':    sx = 32; sy = 16; break; // east vertical post
-        case 'corner_sw':     sx = 0;  sy = 32; break; // bottom-left corner
-        case 'horizontal_b':  sx = 16; sy = 32; break; // bottom horizontal rail
-        case 'corner_se':     sx = 32; sy = 32; break; // bottom-right corner
-        case 'post_cap_l':    sx = 16; sy = 48; break; // post cap ending left
-        case 'post_cap_r':    sx = 32; sy = 48; break; // post cap ending right
-        case 'post_isolated': sx = 16; sy = 64; break; // gate post
-        default: break;
-      }
-      ctx.drawImage(fenceImg, sx, sy, 16, 16, tileX * TILE_SIZE, tileY * TILE_SIZE, 16, 16);
-    };
-
-    // 1. Decorative fence above the cultivation plots (y=1, from x=7 to x=12)
-    drawPiece('post_cap_l', 7, 1);
-    for (let x = 8; x <= 11; x++) {
-      drawPiece('horizontal_b', x, 1);
-    }
-    drawPiece('post_cap_r', 12, 1);
-
-    // 2. Chicken Pasture Enclosure (x=19 to 23, y=1 to 5, fully enclosed with gate at x=20, y=5)
-    drawPiece('corner_nw', 19, 1);
-    for (let x = 20; x <= 22; x++) {
-      drawPiece('horizontal_t', x, 1);
-    }
-    drawPiece('corner_ne', 23, 1);
-
-    // East vertical posts
-    for (let y = 2; y <= 4; y++) {
-      drawPiece('vertical_e', 23, y);
-    }
-
-    // West vertical posts (fully enclosing the chicken run)
-    for (let y = 2; y <= 4; y++) {
-      drawPiece('vertical_w', 19, y);
-    }
-
-    // South border with gate
-    drawPiece('corner_sw', 19, 5);
-    drawPiece('post_isolated', 20, 5); // Gate post opening
-    for (let x = 21; x <= 22; x++) {
-      drawPiece('horizontal_b', x, 5);
-    }
-    drawPiece('corner_se', 23, 5);
-
-    // 3. Cattle Pasture Enclosure (x=18 to 23, y=8 to 12, fully aligned)
-    drawPiece('corner_nw', 18, 8);
-    for (let x = 19; x <= 22; x++) {
-      drawPiece('horizontal_t', x, 8);
-    }
-    drawPiece('corner_ne', 23, 8);
-
-    // East vertical posts
-    for (let y = 9; y <= 11; y++) {
-      drawPiece('vertical_e', 23, y);
-    }
-
-    // West vertical posts and gate
-    drawPiece('post_isolated', 18, 9); // Gate opening at y=9
-    for (let y = 10; y <= 11; y++) {
-      drawPiece('vertical_w', 18, y);
-    }
-
-    // South border
-    drawPiece('corner_sw', 18, 12);
-    for (let x = 19; x <= 22; x++) {
-      drawPiece('horizontal_b', x, 12);
-    }
-    drawPiece('corner_se', 23, 12);
+    // Deprecated standalone render, now handled dynamically inside renderDepthSortedEntities
   }
 
   renderDepthSortedEntities(ctx) {
     if (!this.gameState) return;
 
     const entities = [];
+
+    // 0. Fences with Depth Sorting (Ensures animals & player walk properly behind south fences)
+    const fenceImg = this.images.fence;
+    if (fenceImg) {
+      const drawPiece = (piece, tileX, tileY) => {
+        let sx = 16, sy = 32;
+        switch (piece) {
+          case 'corner_nw':     sx = 0;  sy = 0;  break; // top-left corner
+          case 'horizontal_t':  sx = 16; sy = 0;  break; // top horizontal rail
+          case 'corner_ne':     sx = 32; sy = 0;  break; // top-right corner
+          case 'vertical_w':    sx = 0;  sy = 16; break; // west vertical post
+          case 'vertical_e':    sx = 32; sy = 16; break; // east vertical post
+          case 'corner_sw':     sx = 0;  sy = 32; break; // bottom-left corner
+          case 'horizontal_b':  sx = 16; sy = 32; break; // bottom horizontal rail
+          case 'corner_se':     sx = 32; sy = 32; break; // bottom-right corner
+          case 'post_cap_l':    sx = 16; sy = 48; break; // post cap ending left
+          case 'post_cap_r':    sx = 32; sy = 48; break; // post cap ending right
+          case 'post_isolated': sx = 16; sy = 64; break; // gate post
+          default: break;
+        }
+        ctx.drawImage(fenceImg, sx, sy, 16, 16, tileX * TILE_SIZE, tileY * TILE_SIZE, 16, 16);
+      };
+
+      const addFence = (piece, tileX, tileY, sortYOffset = 15) => {
+        entities.push({
+          sortY: tileY * TILE_SIZE + sortYOffset,
+          render: () => drawPiece(piece, tileX, tileY)
+        });
+      };
+
+      // 1. Decorative fence above cultivation plots
+      addFence('post_cap_l', 7, 1, 14);
+      for (let x = 8; x <= 11; x++) addFence('horizontal_b', x, 1, 14);
+      addFence('post_cap_r', 12, 1, 14);
+
+      // 2. Chicken Pasture Enclosure
+      addFence('corner_nw', 19, 1, 4);
+      for (let x = 20; x <= 22; x++) addFence('horizontal_t', x, 1, 4);
+      addFence('corner_ne', 23, 1, 4);
+
+      for (let y = 2; y <= 4; y++) addFence('vertical_e', 23, y, 15);
+      for (let y = 2; y <= 4; y++) addFence('vertical_w', 19, y, 15);
+
+      addFence('corner_sw', 19, 5, 16);
+      addFence('post_isolated', 20, 5, 16);
+      for (let x = 21; x <= 22; x++) addFence('horizontal_b', x, 5, 16);
+      addFence('corner_se', 23, 5, 16);
+
+      // 3. Cattle Pasture Enclosure
+      addFence('corner_nw', 18, 8, 4);
+      for (let x = 19; x <= 22; x++) addFence('horizontal_t', x, 8, 4);
+      addFence('corner_ne', 23, 8, 4);
+
+      for (let y = 9; y <= 11; y++) addFence('vertical_e', 23, y, 15);
+      addFence('post_isolated', 18, 9, 15);
+      for (let y = 10; y <= 11; y++) addFence('vertical_w', 18, y, 15);
+
+      addFence('corner_sw', 18, 12, 16);
+      for (let x = 19; x <= 22; x++) addFence('horizontal_b', x, 12, 16);
+      addFence('corner_se', 23, 12, 16);
+    }
 
     // 1. Storage Chest
     entities.push({
@@ -1611,7 +1673,7 @@ export class GameEngine {
       for (let x = 0; x < farm.width; x++) {
         const key = `${x},${y}`;
         const tile = farm.tiles[key];
-        if (!tile || !tile.crop) continue;
+        if (!tile || !tile.crop || this.isInsideIdlePlot(x, y)) continue;
 
         const crop = tile.crop;
         const cropDef = cropsConfig[crop.id] || {};
@@ -1681,11 +1743,13 @@ export class GameEngine {
           cropFilter = 'hue-rotate(240deg) saturate(1.7) brightness(0.95)';
         }
 
-        // Draw Crops across the 3x3 bed
+        // Draw Crops across the 3x3 bed (skipping center sprinkler)
         if (cropsImg && (isRunning || isReady)) {
           for (let ty = y1; ty <= y2; ty++) {
             for (let tx = x1; tx <= x2; tx++) {
-              // Leave center space slightly lower for the central sprinkler
+              // Leave center space clear for the brass/gold Quality Sprinkler
+              if (tx === x1 + 1 && ty === y1 + 1) continue;
+
               const destX = tx * TILE_SIZE;
               const destY = ty * TILE_SIZE - 16;
               const sortY = ty * TILE_SIZE + 14;
@@ -1990,32 +2054,247 @@ export class GameEngine {
     ctx.restore();
   }
 
-  renderHoverTile(ctx) {
-    const tx = this.mouse.tileX;
-    const ty = this.mouse.tileY;
+  drawContextTooltip(ctx, worldX, worldY, text, borderColor = '#f59e0b', textColor = '#ffffff') {
+    ctx.save();
+    ctx.font = 'bold 7px sans-serif';
+    const paddingX = 4;
+    const paddingY = 2.5;
+    const textMetrics = ctx.measureText(text);
+    const boxW = Math.max(34, textMetrics.width + paddingX * 2);
+    const boxH = 11;
+    const boxX = Math.round(worldX - boxW / 2);
+    const boxY = Math.round(worldY - boxH);
 
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(boxX + 1, boxY + 1, boxW, boxH);
+
+    // Rustic Wood/Slate tooltip background
+    ctx.fillStyle = '#1c140e';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    // Highlight border
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1);
+
+    // Text with soft shadow
+    ctx.fillStyle = '#000000';
+    ctx.fillText(text, boxX + paddingX + 0.5, boxY + boxH - 3 + 0.5);
+    ctx.fillStyle = textColor;
+    ctx.fillText(text, boxX + paddingX, boxY + boxH - 3);
+
+    ctx.restore();
+  }
+
+  renderHoverTile(ctx) {
     if (!this.gameState) return;
-    if (tx < 0 || tx >= this.gameState.farm.width || ty < 0 || ty >= this.gameState.farm.height) {
+
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+
+    // --- HOUSE INTERIOR HOVER INTERACTIONS ---
+    if (this.location === 'house_interior') {
+      const mx = this.mouse.worldX;
+      const my = this.mouse.worldY;
+
+      // 1. Radio Weather Station (x: 52 to 74, y: 8 to 32)
+      if (mx >= 52 && mx <= 74 && my >= 8 && my <= 32) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(58, 12, 16, 16);
+        this.drawContextTooltip(ctx, 66, 8, "📻 Previsão do Tempo", '#38bdf8');
+        return;
+      }
+
+      // 2. Cozy Bed (x: 20 to 46, y: 30 to 70)
+      if (mx >= 20 && mx <= 46 && my >= 30 && my <= 70) {
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(24, 34, 20, 32);
+        this.drawContextTooltip(ctx, 34, 30, "🛏️ Dormir e Avançar Dia", '#c084fc');
+        return;
+      }
+
+      // 3. Fireplace (x: 138 to 168, y: 24 to 68)
+      if (mx >= 138 && mx <= 168 && my >= 24 && my <= 68) {
+        ctx.strokeStyle = '#f97316';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(140, 32, 26, 32);
+        this.drawContextTooltip(ctx, 153, 28, "🔥 Lareira Quentinha", '#fb923c');
+        return;
+      }
+
+      // 4. Doorway Exit (x: 84 to 108, y: 120 to 140)
+      if (mx >= 84 && mx <= 108 && my >= 120 && my <= 140) {
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(88, 124, 18, 14);
+        this.drawContextTooltip(ctx, 97, 120, "🚪 Sair para Fazenda", '#4ade80');
+        return;
+      }
       return;
     }
 
-    const screenX = tx * TILE_SIZE;
-    const screenY = ty * TILE_SIZE;
+    // --- OUTDOOR FARM HOVER INTERACTIONS ---
+    const tx = this.mouse.tileX;
+    const ty = this.mouse.tileY;
 
-    // Check reach distance
-    const playerCenterX = this.player.x + 16;
-    const playerCenterY = this.player.y + 24;
-    const tileCenterX = tx * TILE_SIZE + 8;
-    const tileCenterY = ty * TILE_SIZE + 8;
-    const inReach = (Math.hypot(tileCenterX - playerCenterX, tileCenterY - playerCenterY) / TILE_SIZE) <= 3.5;
+    // 1. Artisan Machines (Cheese press, Mayo machine, Preserves jar)
+    const hoveredMachine = this.artisanMachines.find(m =>
+      this.mouse.worldX >= m.x - 2 && this.mouse.worldX <= m.x + 18 &&
+      this.mouse.worldY >= m.y - 2 && this.mouse.worldY <= m.y + 18
+    );
+    if (hoveredMachine) {
+      const procState = this.gameState?.processors?.[hoveredMachine.id];
+      const isCompleted = procState?.status === 'COMPLETED' ||
+        (procState?.status === 'PROCESSING' && procState.completedAt && Date.now() >= procState.completedAt);
+      const isProcessing = procState?.status === 'PROCESSING' && !isCompleted;
 
-    // Glowing border indicator: Golden green when in reach, soft muted when out of reach
-    ctx.strokeStyle = inReach ? '#4ade80' : 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(screenX + 0.5, screenY + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+      ctx.strokeStyle = isCompleted ? '#4ade80' : (isProcessing ? '#38bdf8' : '#f59e0b');
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(hoveredMachine.x + 0.5, hoveredMachine.y + 0.5, 15, 15);
 
-    ctx.fillStyle = inReach ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 255, 255, 0.08)';
-    ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+      let label = `📥 Inserir ${hoveredMachine.inputName}`;
+      let borderColor = '#d97706';
+      if (isCompleted) {
+        label = `✨ Coletar ${hoveredMachine.icon}`;
+        borderColor = '#22c55e';
+      } else if (isProcessing) {
+        const rem = Math.max(0, Math.ceil((procState.completedAt - Date.now()) / 1000));
+        label = `⚙️ Processando (${rem}s)`;
+        borderColor = '#0284c7';
+      }
+      this.drawContextTooltip(ctx, hoveredMachine.x + 8, hoveredMachine.y - 4, label, borderColor);
+      return;
+    }
+
+    // 2. Storage Chest (x=13, y=5)
+    if (this.mouse.worldX >= this.chest.x - 2 && this.mouse.worldX <= this.chest.x + 18 &&
+        this.mouse.worldY >= this.chest.y - 2 && this.mouse.worldY <= this.chest.y + 18) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(this.chest.x + 0.5, this.chest.y + 0.5, 15, 15);
+      this.drawContextTooltip(ctx, this.chest.x + 8, this.chest.y - 4, "📦 Abrir Baú", '#d97706');
+      return;
+    }
+
+    // 3. Scarecrow (x=6, y=7)
+    if (this.mouse.worldX >= this.scarecrow.x - 2 && this.mouse.worldX <= this.scarecrow.x + 18 &&
+        this.mouse.worldY >= this.scarecrow.y - 2 && this.mouse.worldY <= this.scarecrow.y + 18) {
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(this.scarecrow.x + 2.5, this.scarecrow.y + 0.5, 11, 15);
+      this.drawContextTooltip(ctx, this.scarecrow.x + 8, this.scarecrow.y - 4, "🌾 Espantalho Protetor", '#ca8a04');
+      return;
+    }
+
+    // 4. Pasture Animals (Chickens, Chicks, and Cows)
+    const hoveredAnimal = this.animals.find(animal => {
+      const isCow = animal.type === 'female_cow' || animal.type === 'male_cow';
+      const hitboxRadius = isCow ? 16 : 12;
+      const animalCenterX = animal.x + (isCow ? 16 : 8);
+      const animalCenterY = animal.y + (isCow ? 16 : 8);
+      return Math.hypot(animalCenterX - this.mouse.worldX, animalCenterY - this.mouse.worldY) < hitboxRadius;
+    });
+
+    if (hoveredAnimal) {
+      const isCow = hoveredAnimal.type === 'female_cow' || hoveredAnimal.type === 'male_cow';
+      const cx = hoveredAnimal.x + (isCow ? 16 : 8);
+      const cy = hoveredAnimal.y + (isCow ? 16 : 8);
+
+      // Soft halo under animal
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + (isCow ? 10 : 6), isCow ? 14 : 7, isCow ? 5 : 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const canMilk = isCow && hoveredAnimal.type === 'female_cow' && hoveredAnimal.lastMilkedDay !== this.gameState?.day;
+      const tipText = canMilk ? `🥛 Ordenhar ${hoveredAnimal.name}` : `❤️ Carinho em ${hoveredAnimal.name}`;
+      const borderColor = canMilk ? '#38bdf8' : '#f472b6';
+      this.drawContextTooltip(ctx, cx, hoveredAnimal.y - 4, tipText, borderColor);
+      return;
+    }
+
+    // 5. Trees & Stumps
+    const hoveredTree = this.trees.find(tree =>
+      this.mouse.worldX >= tree.x && this.mouse.worldX <= tree.x + 32 &&
+      this.mouse.worldY >= tree.y && this.mouse.worldY <= tree.y + 48
+    );
+    if (hoveredTree) {
+      ctx.strokeStyle = '#a16207';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(hoveredTree.x + 8.5, hoveredTree.y + 32.5, 15, 13);
+      const hp = hoveredTree.health !== undefined ? hoveredTree.health : (hoveredTree.maxHealth || 3);
+      const maxHp = hoveredTree.maxHealth || 3;
+      this.drawContextTooltip(ctx, hoveredTree.x + 16, hoveredTree.y + 28, `🪓 Madeira (${hp}/${maxHp})`, '#ca8a04');
+      return;
+    }
+
+    // 6. Idle Cultivation Plots (Full 3x3 Bed Highlight & Action Tooltip)
+    if (this.gameState && this.gameState.idlePlots) {
+      const hoveredPlot = this.gameState.idlePlots.find(p =>
+        tx >= p.bounds.x1 && tx <= p.bounds.x2 && ty >= p.bounds.y1 && ty <= p.bounds.y2
+      );
+
+      if (hoveredPlot) {
+        const px = hoveredPlot.bounds.x1 * TILE_SIZE;
+        const py = hoveredPlot.bounds.y1 * TILE_SIZE;
+        const pw = (hoveredPlot.bounds.x2 - hoveredPlot.bounds.x1 + 1) * TILE_SIZE;
+        const ph = (hoveredPlot.bounds.y2 - hoveredPlot.bounds.y1 + 1) * TILE_SIZE;
+
+        const isReady = hoveredPlot.status === 'COMPLETED' || (hoveredPlot.status === 'RUNNING' && hoveredPlot.completedAt && Date.now() >= hoveredPlot.completedAt);
+        const isRunning = hoveredPlot.status === 'RUNNING' && !isReady;
+
+        // Elegant Stardew decorative corners on the 48x48 bed
+        const highlightColor = isReady ? '#4ade80' : (isRunning ? '#38bdf8' : '#fbbf24');
+        ctx.strokeStyle = highlightColor;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(px - 1, py - 1, pw + 2, ph + 2);
+
+        // L-shaped corner brackets
+        const cl = 6;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Top-left
+        ctx.moveTo(px - 1, py + cl); ctx.lineTo(px - 1, py - 1); ctx.lineTo(px + cl, py - 1);
+        // Top-right
+        ctx.moveTo(px + pw + 1 - cl, py - 1); ctx.lineTo(px + pw + 1, py - 1); ctx.lineTo(px + pw + 1, py + cl);
+        // Bottom-left
+        ctx.moveTo(px - 1, py + ph + 1 - cl); ctx.lineTo(px - 1, py + ph + 1); ctx.lineTo(px + cl, py + ph + 1);
+        // Bottom-right
+        ctx.moveTo(px + pw + 1 - cl, py + ph + 1); ctx.lineTo(px + pw + 1, py + ph + 1); ctx.lineTo(px + pw + 1, py + ph + 1 - cl);
+        ctx.stroke();
+
+        let tip = `🌱 Plantar no ${hoveredPlot.name}`;
+        let borderColor = '#d97706';
+        if (isReady) {
+          tip = `🌾 Clique para Colher (${hoveredPlot.name})`;
+          borderColor = '#16a34a';
+        } else if (isRunning) {
+          const rem = Math.max(0, Math.ceil((hoveredPlot.completedAt - Date.now()) / 1000));
+          tip = `⏳ Crescendo (${rem}s)`;
+          borderColor = '#0284c7';
+        }
+        this.drawContextTooltip(ctx, px + pw / 2, py - 6, tip, borderColor);
+        return;
+      }
+    }
+
+    // 7. General Farm Tile Hover (with Reach check)
+    if (tx >= 0 && tx < this.gameState.farm.width && ty >= 0 && ty < this.gameState.farm.height) {
+      const screenX = tx * TILE_SIZE;
+      const screenY = ty * TILE_SIZE;
+      const tileCenterX = tx * TILE_SIZE + 8;
+      const tileCenterY = ty * TILE_SIZE + 8;
+      const inReach = (Math.hypot(tileCenterX - playerCenterX, tileCenterY - playerCenterY) / TILE_SIZE) <= 3.5;
+
+      ctx.strokeStyle = inReach ? '#4ade80' : 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(screenX + 0.5, screenY + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+      ctx.fillStyle = inReach ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+      ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+    }
   }
 
   renderParticles(ctx) {
