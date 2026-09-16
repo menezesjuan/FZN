@@ -15,6 +15,8 @@ export default function GameCanvas({
   onOpenChest,
   isChestOpen,
   onTuneRadio,
+  onStartProcessor,
+  onCollectProcessor,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -32,7 +34,21 @@ export default function GameCanvas({
     resize();
     window.addEventListener('resize', resize);
 
-    const engine = new GameEngine(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio);
+    const engine = new GameEngine(
+      canvas,
+      onTileInteract,
+      onShowToast,
+      onInteractDoor,
+      onCollectEgg,
+      onChopTree,
+      onMilkCow,
+      onPetAnimal,
+      onTransitionLocation,
+      onOpenChest,
+      onTuneRadio,
+      onStartProcessor,
+      onCollectProcessor
+    );
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 

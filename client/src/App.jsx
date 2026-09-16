@@ -753,6 +753,8 @@ export default function App() {
         onMilkCow={handleMilkCow}
         onPetAnimal={handlePetAnimal}
         onTransitionLocation={handleTransitionLocation}
+        onStartProcessor={handleStartProcessor}
+        onCollectProcessor={handleCollectProcessor}
         engineRef={engineRef}
       />
 

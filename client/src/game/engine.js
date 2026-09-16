@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio, onStartProcessor, onCollectProcessor) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -18,7 +18,19 @@ export class GameEngine {
     this.onTransitionLocation = onTransitionLocation;
     this.onOpenChest = onOpenChest;
     this.onTuneRadio = onTuneRadio;
+    this.onStartProcessor = onStartProcessor;
+    this.onCollectProcessor = onCollectProcessor;
     this.location = 'farm'; // 'farm' | 'house_interior'
+
+    // Stardew Valley Artisan Machines (outdoor production yard next to chest)
+    this.artisanMachines = [
+      { id: 'cheese_press', name: 'Prensa de Queijo', x: 10 * TILE_SIZE, y: 5 * TILE_SIZE, icon: '🧀', inputName: 'Leite' },
+      { id: 'mayo_machine', name: 'Maioneseira Rústica', x: 11 * TILE_SIZE, y: 5 * TILE_SIZE, icon: '🥚', inputName: 'Ovo' },
+      { id: 'preserves_jar', name: 'Tacho de Geléia', x: 12 * TILE_SIZE, y: 5 * TILE_SIZE, icon: '🍓', inputName: 'Fruta' }
+    ];
+
+    // Stardew Valley Rarecrow in the central crossroads between the 4 plots
+    this.scarecrow = { x: 6 * TILE_SIZE, y: 7 * TILE_SIZE };
     this.isNearDoor = false;
     this.isNearBed = false;
     this.isNearInteriorExit = false;
@@ -300,6 +312,49 @@ export class GameEngine {
 
     // Check bounds
     if (tx < 0 || tx >= this.gameState.farm.width || ty < 0 || ty >= this.gameState.farm.height) {
+      return;
+    }
+
+    // Check if clicked on an Artisan Machine (Cheese press, Mayo machine, Preserves jar)
+    const clickedMachine = this.artisanMachines.find(m =>
+      this.mouse.worldX >= m.x - 2 && this.mouse.worldX <= m.x + 18 &&
+      this.mouse.worldY >= m.y - 2 && this.mouse.worldY <= m.y + 18
+    );
+
+    if (clickedMachine) {
+      const dist = Math.hypot(clickedMachine.x + 8 - playerCenterX, clickedMachine.y + 8 - playerCenterY);
+      if (dist > 46) {
+        if (this.onShowToast) this.onShowToast(`Muito longe da ${clickedMachine.name}! Aproxime-se.`, "warning");
+        return;
+      }
+
+      const procState = this.gameState?.processors?.[clickedMachine.id];
+      const isCompleted = procState?.status === 'COMPLETED' ||
+        (procState?.status === 'PROCESSING' && procState.completedAt && Date.now() >= procState.completedAt);
+
+      if (isCompleted) {
+        if (this.onCollectProcessor) {
+          this.onCollectProcessor(clickedMachine.id);
+        }
+      } else if (procState?.status === 'PROCESSING') {
+        const rem = Math.max(0, Math.ceil((procState.completedAt - Date.now()) / 1000));
+        this.addFloatingText(`${clickedMachine.icon} ${rem}s restantes`, clickedMachine.x + 8, clickedMachine.y, '#38bdf8');
+      } else {
+        if (this.onStartProcessor) {
+          this.onStartProcessor(clickedMachine.id);
+        }
+      }
+      return;
+    }
+
+    // Check if clicked on Scarecrow
+    if (this.mouse.worldX >= this.scarecrow.x - 2 && this.mouse.worldX <= this.scarecrow.x + 18 &&
+        this.mouse.worldY >= this.scarecrow.y - 2 && this.mouse.worldY <= this.scarecrow.y + 18) {
+      const dist = Math.hypot(this.scarecrow.x + 8 - playerCenterX, this.scarecrow.y + 8 - playerCenterY);
+      if (dist <= 48) {
+        this.addFloatingText("🌾 Espantalho FZN: Lavouras Protegidas!", this.scarecrow.x + 8, this.scarecrow.y - 12, '#fef08a');
+        this.addParticleBurst(this.scarecrow.x + 8, this.scarecrow.y + 8, '#f59e0b', 8);
+      }
       return;
     }
 
@@ -710,9 +765,19 @@ export class GameEngine {
     const houseRoof = { x: this.house.x + 4, y: this.house.y + 20, w: 64, h: 32 };
     if (intersects(box, houseRoof)) return true;
 
-    // 3. Storage Chest
+    // 3. Storage Chest & Artisan Machines
     const chestBox = { x: this.chest.x + 1, y: this.chest.y + 4, w: 14, h: 12 };
     if (intersects(box, chestBox)) return true;
+
+    // Artisan Machines (cheese press, mayo machine, preserves jar)
+    for (const m of this.artisanMachines) {
+      const mBox = { x: m.x + 1, y: m.y + 4, w: 14, h: 12 };
+      if (intersects(box, mBox)) return true;
+    }
+
+    // Scarecrow collision
+    const scarecrowBox = { x: this.scarecrow.x + 4, y: this.scarecrow.y + 8, w: 8, h: 8 };
+    if (intersects(box, scarecrowBox)) return true;
 
     // 4. Maple Trees (Trunks solid at the base)
     for (const tree of this.trees) {
@@ -1349,6 +1414,139 @@ export class GameEngine {
           const sy = this.isChestOpen ? 16 : 0;
           ctx.drawImage(chestImg, 8, sy, 16, 16, this.chest.x, this.chest.y, 16, 16);
         }
+      }
+    });
+
+    // 1.5 Stardew Valley Artisan Machines (Cheese Press, Mayo Machine, Preserves Jar)
+    const now = Date.now();
+    for (const machine of this.artisanMachines) {
+      const procState = this.gameState?.processors?.[machine.id];
+      const isCompleted = procState?.status === 'COMPLETED' ||
+        (procState?.status === 'PROCESSING' && procState.completedAt && now >= procState.completedAt);
+      const isProcessing = procState?.status === 'PROCESSING' && !isCompleted;
+
+      entities.push({
+        sortY: machine.y + 16,
+        render: () => {
+          const mx = machine.x;
+          const my = machine.y;
+
+          // Machine drop shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+          ctx.beginPath();
+          ctx.ellipse(mx + 8, my + 14, 7, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Gentle processing vibration
+          const vibX = isProcessing ? (Math.sin(now / 60) * 0.8) : 0;
+          const rx = mx + vibX;
+
+          if (machine.id === 'cheese_press') {
+            // Wood press frame
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(rx + 2, my + 3, 12, 12);
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(rx + 3, my + 4, 10, 10);
+            // Metal screw press bar
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(rx + 6, my + 1, 4, 4);
+            ctx.fillRect(rx + 4, my, 8, 2);
+            // Curd basket inside
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(rx + 4, my + 7, 8, 6);
+          } else if (machine.id === 'mayo_machine') {
+            // White enamel machine cask
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(rx + 2, my + 3, 12, 12);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(rx + 3, my + 4, 10, 10);
+            // Brass gear handle
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(rx + 11, my + 6, 3, 4);
+            ctx.fillRect(rx + 5, my + 1, 6, 2);
+          } else if (machine.id === 'preserves_jar') {
+            // Glass preserves jar with red fabric lid
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(rx + 3, my + 5, 10, 10);
+            ctx.fillStyle = isProcessing ? '#f43f5e' : '#e11d48';
+            ctx.fillRect(rx + 4, my + 6, 8, 8);
+            // Gingham cloth lid
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(rx + 3, my + 2, 10, 3);
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(rx + 4, my + 4, 8, 1);
+          }
+
+          // Processing steam / smoke bubbles
+          if (isProcessing) {
+            const bubbleY = my - ((now / 40) % 14);
+            const bubbleX = mx + 7 + Math.sin(now / 80) * 3;
+            ctx.fillStyle = machine.id === 'preserves_jar' ? 'rgba(251, 113, 133, 0.65)' : 'rgba(241, 245, 249, 0.7)';
+            ctx.beginPath();
+            ctx.arc(bubbleX, bubbleY, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Completed Product Notification Bubble (Stardew style exclamation bobbing)
+          if (isCompleted) {
+            const bob = Math.sin(now / 150) * 3;
+            const bubbleY = my - 16 + bob;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(mx - 1, bubbleY + 1, 18, 14);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(mx - 1, bubbleY, 18, 13);
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mx - 1, bubbleY, 18, 13);
+
+            ctx.font = '10px sans-serif';
+            ctx.fillText(machine.icon, mx + 2, bubbleY + 10);
+          }
+        }
+      });
+    }
+
+    // 1.8 Stardew Valley Rarecrow (x=6, y=7 crossroads)
+    entities.push({
+      sortY: this.scarecrow.y + 16,
+      render: () => {
+        const scX = this.scarecrow.x;
+        const scY = this.scarecrow.y;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.ellipse(scX + 8, scY + 15, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Wooden cross post
+        ctx.fillStyle = '#5c3a21';
+        ctx.fillRect(scX + 7, scY + 4, 2, 12);
+        ctx.fillRect(scX + 1, scY + 7, 14, 2);
+
+        // Straw hands
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(scX, scY + 6, 2, 4);
+        ctx.fillRect(scX + 14, scY + 6, 2, 4);
+
+        // Blue flannel shirt
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(scX + 4, scY + 6, 8, 6);
+        ctx.fillStyle = '#ef4444'; // Red scarf
+        ctx.fillRect(scX + 5, scY + 5, 6, 2);
+
+        // Pumpkin/Turnip head & Straw Hat
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(scX + 8, scY + 4, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Broad-brim straw hat
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(scX + 3, scY + 1, 10, 2);
+        ctx.fillRect(scX + 5, scY - 2, 6, 3);
       }
     });
 
