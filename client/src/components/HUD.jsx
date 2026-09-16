@@ -96,7 +96,7 @@ export default function HUD({
             </div>
             <div>
               <div className="font-pixel" style={{ fontSize: '11px', color: '#ffea75', marginBottom: '2px' }}>
-                🌸 {time?.season || 'Primavera'} — Dia {time?.day || 1}
+                {{Primavera: '🌸', Verão: '☀️', Outono: '🍂', Inverno: '❄️'}[time?.season] || '🌸'} {time?.season || 'Primavera'} — Dia {time?.day || 1}
               </div>
               <div style={{ fontSize: '11px', color: '#e2e8f0', display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
                 <span>Ano {time?.year || 1}</span>

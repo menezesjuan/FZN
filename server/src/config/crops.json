@@ -13,6 +13,9 @@
     "seedBatchCost": 40,
     "xp": 15,
     "rowIndex": 0,
+    "seasons": [
+      "Primavera"
+    ],
     "description": "Uma fruta doce e suculenta que brilha no início da primavera.",
     "qualityChances": {
       "silver": 0.25,
@@ -34,9 +37,12 @@
     "seedBatchCost": 22,
     "xp": 8,
     "rowIndex": 1,
+    "seasons": [
+      "Primavera"
+    ],
     "description": "Talo aromático e crocante, excelente para sopas e refogados.",
     "qualityChances": {
-      "silver": 0.20,
+      "silver": 0.2,
       "gold": 0.08,
       "iridium": 0.01
     }
@@ -55,11 +61,14 @@
     "seedBatchCost": 30,
     "xp": 10,
     "rowIndex": 2,
+    "seasons": [
+      "Primavera"
+    ],
     "extraYieldChance": 0.25,
     "description": "Tubérculo nutritivo e versátil que pode render colheita extra.",
     "qualityChances": {
       "silver": 0.22,
-      "gold": 0.10,
+      "gold": 0.1,
       "iridium": 0.02
     }
   },
@@ -77,11 +86,110 @@
     "seedBatchCost": 18,
     "xp": 6,
     "rowIndex": 3,
+    "seasons": [
+      "Primavera"
+    ],
     "description": "Crescimento rápido e aroma inconfundível.",
     "qualityChances": {
       "silver": 0.18,
       "gold": 0.06,
       "iridium": 0.01
+    }
+  },
+  "blueberry": {
+    "id": "blueberry",
+    "name": "Mirtilo",
+    "seedId": "seeds_blueberry",
+    "produceId": "crop_blueberry",
+    "seedPrice": 80,
+    "baseSellPrice": 80,
+    "stages": 6,
+    "secondsPerStage": 18,
+    "idleDurationSeconds": 150,
+    "batchYield": 10,
+    "seedBatchCost": 55,
+    "xp": 18,
+    "rowIndex": 4,
+    "seasons": [
+      "Verão"
+    ],
+    "description": "Fruta azul-violeta de sabor intenso, colhida nos dias quentes do verão.",
+    "qualityChances": {
+      "silver": 0.28,
+      "gold": 0.13,
+      "iridium": 0.04
+    }
+  },
+  "melon": {
+    "id": "melon",
+    "name": "Melancia",
+    "seedId": "seeds_melon",
+    "produceId": "crop_melon",
+    "seedPrice": 160,
+    "baseSellPrice": 250,
+    "stages": 8,
+    "secondsPerStage": 25,
+    "idleDurationSeconds": 360,
+    "batchYield": 6,
+    "seedBatchCost": 120,
+    "xp": 30,
+    "rowIndex": 5,
+    "seasons": [
+      "Verão"
+    ],
+    "description": "A rainha do verão. Grande, suculenta e de alto valor no mercado.",
+    "qualityChances": {
+      "silver": 0.2,
+      "gold": 0.1,
+      "iridium": 0.03
+    }
+  },
+  "pumpkin": {
+    "id": "pumpkin",
+    "name": "Abóbora",
+    "seedId": "seeds_pumpkin",
+    "produceId": "crop_pumpkin",
+    "seedPrice": 180,
+    "baseSellPrice": 320,
+    "stages": 8,
+    "secondsPerStage": 30,
+    "idleDurationSeconds": 480,
+    "batchYield": 4,
+    "seedBatchCost": 140,
+    "xp": 35,
+    "rowIndex": 6,
+    "seasons": [
+      "Outono"
+    ],
+    "description": "Símbolo do outono, de casca laranja e polpa dourada com alto valor de venda.",
+    "qualityChances": {
+      "silver": 0.22,
+      "gold": 0.11,
+      "iridium": 0.03
+    }
+  },
+  "grape": {
+    "id": "grape",
+    "name": "Uva",
+    "seedId": "seeds_grape",
+    "produceId": "crop_grape",
+    "seedPrice": 80,
+    "baseSellPrice": 110,
+    "stages": 6,
+    "secondsPerStage": 20,
+    "idleDurationSeconds": 200,
+    "batchYield": 8,
+    "seedBatchCost": 70,
+    "xp": 22,
+    "rowIndex": 7,
+    "seasons": [
+      "Outono"
+    ],
+    "description": "Cachos aromáticos colhidos no outono, ideais para sucos e vinagres artesanais.",
+    "qualityChances": {
+      "silver": 0.26,
+      "gold": 0.12,
+      "iridium": 0.04
     }
   }
 }

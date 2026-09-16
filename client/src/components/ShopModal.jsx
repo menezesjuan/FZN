@@ -6,7 +6,9 @@ export default function ShopModal({
   catalog, 
   inventory, 
   playerMoney, 
-  itemsConfig, 
+  itemsConfig,
+  cropsConfig = {},
+  currentSeason = 'Primavera',
   onBuy, 
   onSell 
 }) {
@@ -79,26 +81,66 @@ export default function ShopModal({
         <div className="pixel-panel-inner" style={{ padding: '12px', maxHeight: '340px', overflowY: 'auto' }}>
           {tab === 'buy' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {catalog.map(seed => (
-                <div
-                  key={seed.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px',
-                    background: '#fff9ed',
-                    border: '1px solid #d4a373',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '24px' }}>🌱</span>
-                    <div>
-                      <h4 style={{ fontSize: '13px', fontWeight: 'bold' }}>{seed.name}</h4>
-                      <p style={{ fontSize: '11px', color: '#664422' }}>{seed.description}</p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                background: '#fef3c7',
+                borderRadius: '4px',
+                border: '1px solid #fde68a',
+                fontSize: '11px',
+                color: '#92400e'
+              }}>
+                <span>Estação Atual: <strong>{{ Primavera: '🌸 Primavera', Verão: '☀️ Verão', Outono: '🍂 Outono', Inverno: '❄️ Inverno' }[currentSeason] || currentSeason}</strong></span>
+                {currentSeason === 'Inverno' ? (
+                  <span style={{ color: '#dc2626', fontWeight: 'bold' }}>❄️ Inverno: sem plantios ativos</span>
+                ) : (
+                  <span>Sementes fora de época podem ser guardadas no baú</span>
+                )}
+              </div>
+
+              {catalog.map(seed => {
+                const cropDef = cropsConfig?.[seed.cropId];
+                const inSeason = cropDef?.seasons ? cropDef.seasons.includes(currentSeason) : true;
+                const isWinter = currentSeason === 'Inverno';
+
+                return (
+                  <div
+                    key={seed.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px',
+                      background: inSeason && !isWinter ? '#fff9ed' : '#f8fafc',
+                      border: `1px solid ${inSeason && !isWinter ? '#d4a373' : '#cbd5e1'}`,
+                      borderRadius: '4px',
+                      opacity: inSeason && !isWinter ? 1 : 0.85
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '24px' }}>🌱</span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <h4 style={{ fontSize: '13px', fontWeight: 'bold' }}>{seed.name}</h4>
+                          {cropDef?.seasons && (
+                            <span style={{
+                              fontSize: '9px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: inSeason && !isWinter ? '#dcfce7' : '#fee2e2',
+                              color: inSeason && !isWinter ? '#15803d' : '#b91c1c',
+                              fontWeight: 'bold',
+                              border: `1px solid ${inSeason && !isWinter ? '#86efac' : '#fca5a5'}`
+                            }}>
+                              {inSeason && !isWinter ? `✓ ${cropDef.seasons.join('/')}` : `🚫 ${cropDef.seasons.join('/')}`}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: '11px', color: '#664422' }}>{seed.description}</p>
+                      </div>
                     </div>
-                  </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="font-pixel" style={{ fontSize: '12px', color: '#b45309' }}>
@@ -121,8 +163,9 @@ export default function ShopModal({
                       5x ({seed.buyPrice * 5}G)
                     </button>
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
 

@@ -38,7 +38,7 @@
   "preserves_jar": {
     "id": "preserves_jar",
     "name": "Tacho de Geléia Artesanal",
-    "icon": "🍓",
+    "icon": "🍯",
     "durationSeconds": 100,
     "input": {
       "itemId": "crop_strawberry",
@@ -51,6 +51,38 @@
       "quantity": 1,
       "xp": 45
     },
-    "description": "Cozinha e apura frutas frescas em fogo brando, produzindo compotas doces de alto valor."
+    "description": "Cozinha e apura frutas frescas em fogo brando, produzindo compotas doces de alto valor.",
+    "recipes": [
+      {
+        "inputItemId": "crop_strawberry",
+        "inputName": "Morango",
+        "inputQuantity": 2,
+        "outputItemId": "artisan_jam",
+        "outputName": "Geléia Real de Morango",
+        "outputQuantity": 1,
+        "xp": 45,
+        "durationSeconds": 100
+      },
+      {
+        "inputItemId": "crop_blueberry",
+        "inputName": "Mirtilo",
+        "inputQuantity": 2,
+        "outputItemId": "artisan_blueberry_jam",
+        "outputName": "Geléia de Mirtilo",
+        "outputQuantity": 1,
+        "xp": 50,
+        "durationSeconds": 100
+      },
+      {
+        "inputItemId": "crop_grape",
+        "inputName": "Uva",
+        "inputQuantity": 3,
+        "outputItemId": "artisan_grape_juice",
+        "outputName": "Suco de Uva Artesanal",
+        "outputQuantity": 1,
+        "xp": 48,
+        "durationSeconds": 120
+      }
+    ]
   }
 }

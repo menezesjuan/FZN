@@ -137,6 +137,15 @@ class FarmEngine {
 
     const cropDef = cropsConfig[itemDef.cropId];
 
+    // Season validation — Inverno blocks all crops; otherwise check crop's seasons array
+    const currentSeason = this.state.time?.season || 'Primavera';
+    if (currentSeason === 'Inverno') {
+      throw new Error('É Inverno! Nenhuma cultura pode ser plantada durante o inverno. Aproveite para processar artesanais e vender no mercado.');
+    }
+    if (cropDef.seasons && !cropDef.seasons.includes(currentSeason)) {
+      throw new Error(`${cropDef.name} só cresce na ${cropDef.seasons.join(' ou ')}! Agora é ${currentSeason}.`);
+    }
+
     // Deduct seed from inventory
     this.state.inventory[invIndex].quantity -= 1;
     if (this.state.inventory[invIndex].quantity <= 0) {
@@ -296,12 +305,15 @@ class FarmEngine {
 
     // Advance to next day
     this.state.time.day += 1;
+    const prevSeason = this.state.time.season;
+    let seasonChanged = false;
     if (this.state.time.day > 28) {
       this.state.time.day = 1;
       const seasons = ["Primavera", "Verão", "Outono", "Inverno"];
       const curIdx = seasons.indexOf(this.state.time.season);
       const nextIdx = (curIdx + 1) % seasons.length;
       this.state.time.season = seasons[nextIdx];
+      seasonChanged = true;
       if (nextIdx === 0) this.state.time.year += 1;
     }
 
@@ -394,6 +406,9 @@ class FarmEngine {
       player: this.state.player,
       weather: this.state.weather,
       tomorrowWeather: this.state.tomorrowWeather,
+      seasonChanged,
+      newSeason: this.state.time.season,
+      prevSeason,
       state: this.getState()
     };
   }
@@ -403,6 +418,21 @@ class FarmEngine {
     if (roll < 0.68) return 'sunny';
     if (roll < 0.90) return 'rainy';
     return 'stormy';
+  }
+
+  getSeasonalCrops() {
+    const currentSeason = this.state.time?.season || 'Primavera';
+    const allCrops = Object.values(cropsConfig);
+    const seasonal = allCrops.filter(crop => {
+      if (currentSeason === 'Inverno') return false;
+      if (!crop.seasons) return true; // no restriction = always available
+      return crop.seasons.includes(currentSeason);
+    });
+    return {
+      success: true,
+      season: currentSeason,
+      crops: seasonal
+    };
   }
 
   getWeatherForecast() {
@@ -1025,12 +1055,21 @@ class FarmEngine {
       throw new Error(`Cultura "${cropId}" não reconhecida.`);
     }
 
-    const cost = cropDef.seedBatchCost || 20;
-    if ((this.state.player.gold || 0) < cost) {
-      throw new Error(`Ouro insuficiente para iniciar lote de ${cropDef.name} (Custo: ${cost}G, Você tem: ${this.state.player.gold}G).`);
+    // Season validation — Inverno blocks all idle plots; otherwise check crop's seasons array
+    const currentSeason = this.state.time?.season || 'Primavera';
+    if (currentSeason === 'Inverno') {
+      throw new Error('É Inverno! Os talhões de produção idle não operam durante o inverno. Aproveite para processar artesanais e vender no mercado.');
+    }
+    if (cropDef.seasons && !cropDef.seasons.includes(currentSeason)) {
+      throw new Error(`${cropDef.name} só cresce na ${cropDef.seasons.join(' ou ')}! Agora é ${currentSeason}. Escolha um cultivo da estação atual.`);
     }
 
-    this.state.player.gold -= cost;
+    const cost = cropDef.seedBatchCost || 20;
+    if ((this.state.player.money || 0) < cost) {
+      throw new Error(`Ouro insuficiente para iniciar lote de ${cropDef.name} (Custo: ${cost}G, Você tem: ${this.state.player.money || 0}G).`);
+    }
+
+    this.state.player.money -= cost;
 
     const now = Date.now();
     const durationMs = (cropDef.idleDurationSeconds || 60) * 1000;

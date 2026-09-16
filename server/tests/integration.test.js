@@ -49,7 +49,8 @@ test('E2E API Integration: Complete Loop Test (till -> plant -> water -> grow ->
     assert.strictEqual(tillRes.json.success, true);
     assert.strictEqual(tillRes.json.tile.state, 'tilled');
 
-    // 3. Plant strawberry seed
+    // 3. Plant strawberry seed (Spring crop — reset season to ensure compatibility)
+    farmEngine.getState().time.season = 'Primavera';
     farmEngine.addItemToInventory('seeds_strawberry', 1, 'normal');
     const plantRes = await post('/farm/plant', { x: 6, y: 6, seedId: 'seeds_strawberry' });
     assert.strictEqual(plantRes.status, 200);

@@ -25,6 +25,16 @@ router.get('/state', (req, res) => {
   }
 });
 
+// Get crops available in current season
+router.get('/farm/seasonal-crops', (req, res) => {
+  try {
+    const result = farmEngine.getSeasonalCrops();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // Till tile
 router.post('/farm/till', (req, res) => {
   try {

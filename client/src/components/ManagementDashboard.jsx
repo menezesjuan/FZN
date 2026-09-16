@@ -12,6 +12,7 @@ export default function ManagementDashboard({
   processorsConfig = {},
   playerMoney = 0,
   stats = {},
+  currentSeason = 'Primavera',
   onStartPlot,
   onCollectPlot,
   onCollectAllPlots,
@@ -35,7 +36,23 @@ export default function ManagementDashboard({
 
   if (!isOpen) return null;
 
+  const SEASON_ICONS = { Primavera: '🌸', Verão: '☀️', Outono: '🍂', Inverno: '❄️' };
   const availableCrops = Object.values(cropsConfig || {});
+  const isWinter = currentSeason === 'Inverno';
+
+  // Which crops are in-season
+  const inSeasonIds = new Set(
+    availableCrops.filter(c => !c.seasons || c.seasons.includes(currentSeason)).map(c => c.id)
+  );
+  // Sort: in-season first
+  const sortedCrops = [...availableCrops].sort((a, b) => {
+    const aIn = inSeasonIds.has(a.id);
+    const bIn = inSeasonIds.has(b.id);
+    if (aIn && !bIn) return -1;
+    if (!aIn && bIn) return 1;
+    return 0;
+  });
+
   const readyPlotsCount = idlePlots.filter(
     p => p.status === 'COMPLETED' || (p.status === 'RUNNING' && p.completedAt && currentTime >= p.completedAt)
   ).length;
@@ -258,7 +275,10 @@ export default function ManagementDashboard({
                       {isAvailable && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '10px', color: '#94a3b8' }}>Escolha a cultura:</label>
+                            <label style={{ fontSize: '10px', color: '#94a3b8' }}>
+                              Escolha a cultura: <span style={{ color: '#facc15' }}>{SEASON_ICONS[currentSeason]} {currentSeason}</span>
+                              {isWinter && <span style={{ color: '#f87171', marginLeft: '6px' }}>❄️ Inverno — sem plantio</span>}
+                            </label>
                             <select
                               value={selectedCropId}
                               onChange={e => handleSelectCrop(plot.id, e.target.value)}
@@ -271,11 +291,15 @@ export default function ManagementDashboard({
                                 fontSize: '11px'
                               }}
                             >
-                              {availableCrops.map(crop => (
-                                <option key={crop.id} value={crop.id}>
-                                  {crop.name} — Custo: {crop.seedBatchCost || 20}G | Rend: {crop.batchYield || 10} un | Tempo: {crop.idleDurationSeconds || 60}s
-                                </option>
-                              ))}
+                              {sortedCrops.map(crop => {
+                                const inSeason = inSeasonIds.has(crop.id);
+                                const seasonLabel = crop.seasons ? crop.seasons.join('/') : 'Qualquer';
+                                return (
+                                  <option key={crop.id} value={crop.id} disabled={!inSeason}>
+                                    {inSeason ? '✅' : '🚫'} {crop.name} ({seasonLabel}) — {crop.seedBatchCost || 20}G | {crop.batchYield || 10}un | {crop.idleDurationSeconds || 60}s
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
 

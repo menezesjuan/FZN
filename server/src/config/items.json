@@ -146,12 +146,110 @@
       "category": "artisan",
       "baseSellPrice": 170,
       "description": "Compota doce e aveludada preparada lentamente no tacho da fazenda."
+    },
+    "seeds_blueberry": {
+      "id": "seeds_blueberry",
+      "name": "Sementes de Mirtilo",
+      "category": "seed",
+      "cropId": "blueberry",
+      "buyPrice": 80,
+      "sellPrice": 40,
+      "description": "Plante em solo arado no Verão."
+    },
+    "seeds_melon": {
+      "id": "seeds_melon",
+      "name": "Sementes de Melancia",
+      "category": "seed",
+      "cropId": "melon",
+      "buyPrice": 160,
+      "sellPrice": 80,
+      "description": "Plante em solo arado no Verão. Crescimento lento, alto valor."
+    },
+    "seeds_pumpkin": {
+      "id": "seeds_pumpkin",
+      "name": "Sementes de Abóbora",
+      "category": "seed",
+      "cropId": "pumpkin",
+      "buyPrice": 180,
+      "sellPrice": 90,
+      "description": "Plante em solo arado no Outono."
+    },
+    "seeds_grape": {
+      "id": "seeds_grape",
+      "name": "Sementes de Uva",
+      "category": "seed",
+      "cropId": "grape",
+      "buyPrice": 80,
+      "sellPrice": 40,
+      "description": "Plante em solo arado no Outono."
+    },
+    "crop_blueberry": {
+      "id": "crop_blueberry",
+      "name": "Mirtilo",
+      "category": "produce",
+      "cropId": "blueberry",
+      "baseSellPrice": 80,
+      "description": "Fruta azul colhida no verão, rica em antioxidantes."
+    },
+    "crop_melon": {
+      "id": "crop_melon",
+      "name": "Melancia",
+      "category": "produce",
+      "cropId": "melon",
+      "baseSellPrice": 250,
+      "description": "Fruta gigante e suculenta colhida no auge do verão."
+    },
+    "crop_pumpkin": {
+      "id": "crop_pumpkin",
+      "name": "Abóbora",
+      "category": "produce",
+      "cropId": "pumpkin",
+      "baseSellPrice": 320,
+      "description": "Abóbora dourada colhida no outono, de casca firme e polpa saborosa."
+    },
+    "crop_grape": {
+      "id": "crop_grape",
+      "name": "Uva",
+      "category": "produce",
+      "cropId": "grape",
+      "baseSellPrice": 110,
+      "description": "Cacho de uvas aromáticas colhidas no outono."
+    },
+    "artisan_blueberry_jam": {
+      "id": "artisan_blueberry_jam",
+      "name": "Geléia de Mirtilo",
+      "category": "artisan",
+      "baseSellPrice": 200,
+      "description": "Compota artesanal de mirtilo, de cor violeta e sabor marcante."
+    },
+    "artisan_grape_juice": {
+      "id": "artisan_grape_juice",
+      "name": "Suco de Uva Artesanal",
+      "category": "artisan",
+      "baseSellPrice": 180,
+      "description": "Suco prensado artesanalmente das melhores uvas da fazenda."
     }
   },
   "qualities": {
-    "normal": { "name": "Normal", "multiplier": 1.0, "icon": null },
-    "silver": { "name": "Prata", "multiplier": 1.25, "icon": "star_silver" },
-    "gold": { "name": "Ouro", "multiplier": 1.5, "icon": "star_gold" },
-    "iridium": { "name": "Iridium", "multiplier": 2.0, "icon": "star_purple" }
+    "normal": {
+      "name": "Normal",
+      "multiplier": 1,
+      "icon": null
+    },
+    "silver": {
+      "name": "Prata",
+      "multiplier": 1.25,
+      "icon": "star_silver"
+    },
+    "gold": {
+      "name": "Ouro",
+      "multiplier": 1.5,
+      "icon": "star_gold"
+    },
+    "iridium": {
+      "name": "Iridium",
+      "multiplier": 2,
+      "icon": "star_purple"
+    }
   }
 }

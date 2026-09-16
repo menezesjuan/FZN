@@ -412,7 +412,14 @@ export default function App() {
         if (engineRef.current && engineRef.current.location === 'house_interior') {
           engineRef.current.setLocation('house_interior', 48, 48, 'down');
         }
-        showToast(res.message || "Amanheceu um novo dia na sua fazenda! 🌅", 'success');
+        if (res.seasonChanged) {
+          const icons = { Primavera: '🌸', Verão: '☀️', Outono: '🍂', Inverno: '❄️' };
+          const icon = icons[res.newSeason] || '🌿';
+          showToast(`${icon} Nova Estação: ${res.newSeason}! ${res.newSeason === 'Inverno' ? 'Sem plantio — foque em artesanais e mercado.' : 'Novos cultivos disponíveis!'}`, 'success');
+          audio.playLevelUp();
+        } else {
+          showToast(res.message || "Amanheceu um novo dia na sua fazenda! 🌅", 'success');
+        }
         setIsFading(false);
       }, 1000);
     } catch (err) {
@@ -800,6 +807,8 @@ export default function App() {
         inventory={gameState?.inventory || []}
         playerMoney={gameState?.player?.money || 0}
         itemsConfig={itemsConfig}
+        cropsConfig={cropsConfig}
+        currentSeason={gameState?.time?.season || 'Primavera'}
         onBuy={handleBuy}
         onSell={handleSell}
       />
@@ -829,6 +838,7 @@ export default function App() {
         processorsConfig={processorsConfig || {}}
         playerMoney={gameState?.player?.money || 0}
         stats={gameState?.stats || {}}
+        currentSeason={gameState?.time?.season || 'Primavera'}
         onStartPlot={handleStartPlot}
         onCollectPlot={handleCollectPlot}
         onCollectAllPlots={handleCollectAllPlots}

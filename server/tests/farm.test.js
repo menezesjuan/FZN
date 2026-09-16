@@ -14,6 +14,7 @@ test('FarmEngine: till, water, plant, and grow lifecycle', (t) => {
   state.farm.tiles[tileKey].state = 'grass';
   state.farm.tiles[tileKey].crop = null;
   state.farm.tiles[tileKey].isWatered = false;
+  state.time.season = 'Primavera'; // Ensure Spring season for strawberry planting
 
   const tillRes = farmEngine.tillTile(5, 5);
   assert.strictEqual(tillRes.success, true);
@@ -437,9 +438,10 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   plot1.cropId = null;
   plot1.completedAt = null;
 
-  // Give player enough gold
-  state.player.gold = 100;
-  const initialGold = state.player.gold;
+  // Give player enough money and set Spring season for leek
+  state.player.money = 1000;
+  state.time.season = 'Primavera';
+  const initialMoney = state.player.money;
 
   // 1. Start plot production with leek
   const startRes = farmEngine.startPlotProduction(1, 'leek');
@@ -447,7 +449,7 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   assert.strictEqual(startRes.plot.status, 'RUNNING');
   assert.strictEqual(startRes.plot.cropId, 'leek');
   assert.strictEqual(startRes.plot.quantity, 16);
-  assert.strictEqual(state.player.gold, initialGold - 22, 'Seed batch cost 22G deducted');
+  assert.strictEqual(state.player.money, initialMoney - 22, 'Seed batch cost 22G deducted');
 
   // Cannot start an already running plot
   assert.throws(() => {
@@ -501,7 +503,8 @@ test('FarmEngine: Offline progress calculation and welcome report generation', (
   const state = farmEngine.getState();
   const plot4 = state.idlePlots[3];
   plot4.status = 'AVAILABLE';
-  state.player.gold = 100;
+  state.player.money = 500;
+  state.time.season = 'Primavera'; // Onion is a Spring crop
 
   // Start plot with onion (45s duration)
   farmEngine.startPlotProduction(4, 'onion');
@@ -590,7 +593,9 @@ test('FarmEngine: Artisan processors (cheese press, mayo machine, preserves jar)
   assert.strictEqual(mayoRes.success, true);
   assert.strictEqual(state.processors.mayo_machine.status, 'PROCESSING');
 
-  // 3. Start preserves jar (requires 2 strawberries)
+  // 3. Start preserves jar (requires 2 strawberries) — clean all existing strawberries to isolate test
+  state.inventory = state.inventory.filter(i => i.id !== 'crop_strawberry');
+  farmEngine.addItemToInventory('crop_strawberry', 5, 'normal');
   const strawberryCountBefore = state.inventory.find(i => i.id === 'crop_strawberry').quantity;
   const jarRes = farmEngine.startProcessor('preserves_jar');
   assert.strictEqual(jarRes.success, true);
@@ -878,3 +883,108 @@ test('Marketplace: getPlayerListings — returns only player listings', () => {
     assert.strictEqual(l.sellerId, 'player', 'All returned listings belong to player');
   }
 });
+
+// =====================================================================
+// CICLO 13: Sazonalidade — Novos Cultivos e Validação por Estação
+// =====================================================================
+
+test('Sazonalidade: Mirtilo cresce no Verão — sucesso no plantio', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+  state.time.season = 'Verão';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_blueberry', 3, 'normal');
+  const result = farmEngine.plantCrop(cx, cy, 'seeds_blueberry');
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(tile.crop.id, 'blueberry');
+  tile.crop = null;
+  state.time.season = 'Primavera'; // Reset season after test
+});
+
+test('Sazonalidade: Mirtilo não cresce na Primavera — erro de estação', () => {
+  const state = farmEngine.getState();
+  state.time.season = 'Primavera';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_blueberry', 1, 'normal');
+  assert.throws(() => {
+    farmEngine.plantCrop(cx, cy, 'seeds_blueberry');
+  }, /só cresce/);
+});
+
+test('Sazonalidade: Melancia não cresce fora do Verão — erro de estação', () => {
+  const state = farmEngine.getState();
+  state.time.season = 'Outono';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_melon', 1, 'normal');
+  assert.throws(() => {
+    farmEngine.plantCrop(cx, cy, 'seeds_melon');
+  }, /só cresce/);
+});
+
+test('Sazonalidade: Abóbora cresce no Outono — sucesso no plantio', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+  state.time.season = 'Outono';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_pumpkin', 1, 'normal');
+  const result = farmEngine.plantCrop(cx, cy, 'seeds_pumpkin');
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(tile.crop.id, 'pumpkin');
+  tile.crop = null;
+});
+
+test('Sazonalidade: Uva cresce no Outono — sucesso no plantio', () => {
+  const state = farmEngine.getState();
+  state.player.money = 500;
+  state.time.season = 'Outono';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_grape', 1, 'normal');
+  const result = farmEngine.plantCrop(cx, cy, 'seeds_grape');
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(tile.crop.id, 'grape');
+  tile.crop = null;
+});
+
+test('Sazonalidade: Inverno bloqueia qualquer plantio', () => {
+  const state = farmEngine.getState();
+  state.time.season = 'Inverno';
+  const tile = Object.values(state.farm.tiles)[0];
+  tile.state = 'tilled';
+  tile.crop = null;
+  const [cx, cy] = Object.keys(state.farm.tiles)[0].split(',').map(Number);
+  farmEngine.addItemToInventory('seeds_strawberry', 1, 'normal');
+  assert.throws(() => {
+    farmEngine.plantCrop(cx, cy, 'seeds_strawberry');
+  }, /Inverno/);
+  state.time.season = 'Primavera';
+});
+
+test('Sazonalidade: getSeasonalCrops() retorna apenas cultivos da estação atual', () => {
+  const state = farmEngine.getState();
+  state.time.season = 'Verão';
+  const result = farmEngine.getSeasonalCrops();
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.season, 'Verão');
+  const ids = result.crops.map(c => c.id);
+  assert.ok(ids.includes('blueberry'), 'Verão deve ter mirtilo');
+  assert.ok(ids.includes('melon'), 'Verão deve ter melancia');
+  assert.ok(!ids.includes('strawberry'), 'Verão não deve ter morango (Primavera)');
+  assert.ok(!ids.includes('pumpkin'), 'Verão não deve ter abóbora (Outono)');
+  state.time.season = 'Primavera';
+});
+
