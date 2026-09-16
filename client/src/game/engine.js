@@ -436,6 +436,31 @@ export class GameEngine {
       return;
     }
 
+    // Check if clicked inside an Idle Cultivation Plot (smart boundary distance)
+    const clickedPlot = this.gameState?.idlePlots?.find(p =>
+      tx >= p.bounds.x1 && tx <= p.bounds.x2 && ty >= p.bounds.y1 && ty <= p.bounds.y2
+    );
+
+    if (clickedPlot) {
+      const playerTileX = playerCenterX / TILE_SIZE;
+      const playerTileY = playerCenterY / TILE_SIZE;
+      const clampedX = Math.max(clickedPlot.bounds.x1, Math.min(playerTileX, clickedPlot.bounds.x2 + 1));
+      const clampedY = Math.max(clickedPlot.bounds.y1, Math.min(playerTileY, clickedPlot.bounds.y2 + 1));
+      const plotDist = Math.hypot(clampedX - playerTileX, clampedY - playerTileY);
+
+      if (plotDist > 4.5) {
+        if (this.onShowToast) {
+          this.onShowToast(`Aproxime-se do ${clickedPlot.name} para interagir.`, "warning");
+        }
+        return;
+      }
+
+      if (this.onTileInteract) {
+        this.onTileInteract(tx, ty, this.selectedTool);
+      }
+      return;
+    }
+
     const tileCenterX = tx * TILE_SIZE + 8;
     const tileCenterY = ty * TILE_SIZE + 8;
     const dist = Math.hypot(tileCenterX - playerCenterX, tileCenterY - playerCenterY) / TILE_SIZE;
@@ -1168,40 +1193,57 @@ export class GameEngine {
       const isRunning = plot.status === 'RUNNING';
       const isReady = plot.status === 'COMPLETED' || (isRunning && plot.completedAt && Date.now() >= plot.completedAt);
 
-      if (isRunning || isReady) {
-        // Tilled rich soil background for active plots
-        ctx.fillStyle = isReady ? '#4a2f1b' : '#5c3a21';
-        ctx.fillRect(plotScreenX, plotScreenY, plotW, plotH);
+      // 1. Raised Garden Bed Wooden Outer Frame (Stardew Valley aesthetic)
+      ctx.fillStyle = '#6d4c41'; // Dark oak wood frame
+      ctx.fillRect(plotScreenX - 1, plotScreenY - 1, plotW + 2, plotH + 2);
+      ctx.fillStyle = '#8d6e63'; // Lighter wood bevel
+      ctx.fillRect(plotScreenX, plotScreenY, plotW, plotH);
 
-        // Soil furrows
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
-        for (let fy = plotScreenY + 6; fy < plotScreenY + plotH; fy += 8) {
-          ctx.fillRect(plotScreenX + 2, fy, plotW - 4, 2);
+      // 2. Interior Tilled Soil
+      if (isRunning || isReady) {
+        // Deep moist composted soil
+        ctx.fillStyle = isReady ? '#3e2723' : '#4e342e';
+        ctx.fillRect(plotScreenX + 2, plotScreenY + 2, plotW - 4, plotH - 4);
+
+        // Neat furrow lines across the bed
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        for (let fy = plotScreenY + 7; fy < plotScreenY + plotH - 2; fy += 8) {
+          ctx.fillRect(plotScreenX + 3, fy, plotW - 6, 2);
         }
 
-        // Moist soil highlight
-        ctx.fillStyle = 'rgba(70, 150, 240, 0.12)';
-        ctx.fillRect(plotScreenX, plotScreenY, plotW, plotH);
+        // Moist soil water glisten
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+        ctx.fillRect(plotScreenX + 2, plotScreenY + 2, plotW - 4, plotH - 4);
       } else {
-        // Available plot: neat dashed boundary
-        ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(plotScreenX + 1.5, plotScreenY + 1.5, plotW - 3, plotH - 3);
-        ctx.setLineDash([]);
+        // Empty prepared soil bed waiting for seeds
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(plotScreenX + 2, plotScreenY + 2, plotW - 4, plotH - 4);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        for (let fy = plotScreenY + 7; fy < plotScreenY + plotH - 2; fy += 8) {
+          ctx.fillRect(plotScreenX + 4, fy, plotW - 8, 1);
+        }
       }
 
-      // Plot border frame
-      ctx.strokeStyle = isReady ? '#22c55e' : (isRunning ? '#3b82f6' : 'rgba(180, 130, 80, 0.5)');
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(plotScreenX + 0.5, plotScreenY + 0.5, plotW - 1, plotH - 1);
+      // 3. Wooden corner reinforcement pegs
+      ctx.fillStyle = '#3e2723';
+      ctx.fillRect(plotScreenX - 1, plotScreenY - 1, 3, 3);
+      ctx.fillRect(plotScreenX + plotW - 2, plotScreenY - 1, 3, 3);
+      ctx.fillRect(plotScreenX - 1, plotScreenY + plotH - 2, 3, 3);
+      ctx.fillRect(plotScreenX + plotW - 2, plotScreenY + plotH - 2, 3, 3);
 
-      // Plot sign badge
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(plotScreenX + 2, plotScreenY + 2, 44, 9);
+      // 4. Status Highlight & Wooden Nameplate
+      ctx.strokeStyle = isReady ? '#22c55e' : (isRunning ? '#38bdf8' : 'rgba(217, 119, 6, 0.6)');
+      ctx.lineWidth = 1;
+      ctx.strokeRect(plotScreenX - 0.5, plotScreenY - 0.5, plotW + 1, plotH + 1);
+
+      // Wooden Signboard with plot name
+      ctx.fillStyle = '#451a03';
+      ctx.fillRect(plotScreenX + 2, plotScreenY + 2, 46, 10);
+      ctx.strokeStyle = '#92400e';
+      ctx.strokeRect(plotScreenX + 2, plotScreenY + 2, 46, 10);
       ctx.fillStyle = isReady ? '#86efac' : (isRunning ? '#93c5fd' : '#fef08a');
-      ctx.font = '6px monospace';
-      ctx.fillText(plot.name.replace('Talhão ', 'T-'), plotScreenX + 4, plotScreenY + 8);
+      ctx.font = 'bold 7px monospace';
+      ctx.fillText(plot.name.replace('Talhão ', 'T-'), plotScreenX + 5, plotScreenY + 9);
     }
   }
 
@@ -1402,56 +1444,149 @@ export class GameEngine {
       }
     }
 
-    // 4.1 Idle Cultivation Plot Crops
-    if (this.gameState && this.gameState.idlePlots && cropsImg) {
+    // 4.1 Idle Cultivation Plot Crops, Sprinklers & Interactive Stardew Badges
+    if (this.gameState && this.gameState.idlePlots) {
       const now = Date.now();
       for (const plot of this.gameState.idlePlots) {
-        if (!plot.cropId) continue;
+        const { x1, y1, x2, y2 } = plot.bounds;
+        const centerX = (x1 + 1) * TILE_SIZE;
+        const centerY = (y1 + 1) * TILE_SIZE;
+
         const isReady = plot.status === 'COMPLETED' || (plot.status === 'RUNNING' && plot.completedAt && now >= plot.completedAt);
         const isRunning = plot.status === 'RUNNING' && !isReady;
-        if (!isRunning && !isReady) continue;
+        const isAvailable = plot.status === 'AVAILABLE';
 
         const cropDef = cropsConfig[plot.cropId] || {};
         const rowIndex = cropDef.rowIndex !== undefined ? cropDef.rowIndex : 0;
+        const sourceRow = rowIndex % 4; // Safely mapped to 4 rows of Spring Crops.png
         const maxStages = cropDef.stages || 6;
 
         let stage = maxStages - 1;
+        let progressPct = 1;
+        let remainingSeconds = 0;
         if (isRunning && plot.startedAt && plot.durationMs) {
           const elapsed = now - plot.startedAt;
-          const pct = Math.min(1, Math.max(0, elapsed / plot.durationMs));
-          stage = Math.min(maxStages - 1, Math.floor(pct * maxStages));
+          progressPct = Math.min(1, Math.max(0, elapsed / plot.durationMs));
+          stage = Math.min(maxStages - 1, Math.floor(progressPct * maxStages));
+          remainingSeconds = Math.max(0, Math.ceil((plot.completedAt - now) / 1000));
         }
 
-        const { x1, y1, x2, y2 } = plot.bounds;
-        for (let ty = y1; ty <= y2; ty++) {
-          for (let tx = x1; tx <= x2; tx++) {
-            const destX = tx * TILE_SIZE;
-            const destY = ty * TILE_SIZE - 16;
-            const sortY = ty * TILE_SIZE + 14;
+        // Color filter for seasonal crops outside the base 4 rows
+        let cropFilter = 'none';
+        if (plot.cropId === 'blueberry') {
+          cropFilter = 'hue-rotate(180deg) saturate(1.6) brightness(1.05)';
+        } else if (plot.cropId === 'melon') {
+          cropFilter = 'hue-rotate(85deg) saturate(1.4) brightness(1.1)';
+        } else if (plot.cropId === 'pumpkin') {
+          cropFilter = 'hue-rotate(330deg) saturate(1.9) brightness(1.15)';
+        } else if (plot.cropId === 'grape') {
+          cropFilter = 'hue-rotate(240deg) saturate(1.7) brightness(0.95)';
+        }
 
-            entities.push({
-              sortY,
-              render: () => {
-                ctx.drawImage(cropsImg, stage * 16, rowIndex * 32, 16, 32, destX, destY, 16, 32);
+        // Draw Crops across the 3x3 bed
+        if (cropsImg && (isRunning || isReady)) {
+          for (let ty = y1; ty <= y2; ty++) {
+            for (let tx = x1; tx <= x2; tx++) {
+              // Leave center space slightly lower for the central sprinkler
+              const destX = tx * TILE_SIZE;
+              const destY = ty * TILE_SIZE - 16;
+              const sortY = ty * TILE_SIZE + 14;
 
-                // If mature, show pulsing sparkle and collect sign on center tile
-                if (isReady && tx === x1 + 1 && ty === y1 + 1) {
-                  const bounce = Math.sin(now / 180) * 3;
-                  ctx.fillStyle = '#ffec40';
-                  ctx.beginPath();
-                  ctx.arc(destX + 8, destY + bounce + 2, 4, 0, Math.PI * 2);
-                  ctx.fill();
-
-                  ctx.fillStyle = '#166534';
-                  ctx.fillRect(destX - 8, destY + bounce - 10, 32, 8);
-                  ctx.fillStyle = '#86efac';
-                  ctx.font = 'bold 6px monospace';
-                  ctx.fillText("COLHER", destX - 6, destY + bounce - 4);
+              entities.push({
+                sortY,
+                render: () => {
+                  if (cropFilter !== 'none') ctx.filter = cropFilter;
+                  ctx.drawImage(cropsImg, stage * 16, sourceRow * 32, 16, 32, destX, destY, 16, 32);
+                  if (cropFilter !== 'none') ctx.filter = 'none';
                 }
-              }
-            });
+              });
+            }
           }
         }
+
+        // Central Stardew Valley Sprinkler & Interactive Badges
+        entities.push({
+          sortY: centerY + 18,
+          render: () => {
+            // 1. Central Quality Sprinkler (Brass base)
+            const spX = centerX + 8;
+            const spY = centerY + 8;
+
+            ctx.fillStyle = '#b45309'; // Bronze base
+            ctx.beginPath();
+            ctx.arc(spX, spY + 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#f59e0b'; // Gold head
+            ctx.fillRect(spX - 2, spY - 3, 4, 4);
+
+            // Water spray droplets animation
+            const sprayAngle = (now / 200) % (Math.PI * 2);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+            for (let a = 0; a < 4; a++) {
+              const ang = sprayAngle + (a * Math.PI / 2);
+              const dropDist = 5 + Math.sin(now / 150 + a) * 2;
+              const dx = spX + Math.cos(ang) * dropDist;
+              const dy = spY + Math.sin(ang) * dropDist;
+              ctx.beginPath();
+              ctx.arc(dx, dy, 1.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
+            // 2. Interactive Status Badges
+            if (isReady) {
+              // Stardew Valley Harvest Notification Banner (pulsing bobbing effect)
+              const bounce = Math.sin(now / 160) * 3;
+              const bannerY = spY - 26 + bounce;
+
+              // Shadow
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+              ctx.fillRect(spX - 20, bannerY + 1, 40, 13);
+
+              // Badge Body
+              ctx.fillStyle = '#15803d'; // Rich green
+              ctx.fillRect(spX - 20, bannerY, 40, 12);
+              ctx.strokeStyle = '#86efac';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(spX - 20, bannerY, 40, 12);
+
+              // Exclamation particle
+              ctx.fillStyle = '#fef08a';
+              ctx.font = 'bold 7px sans-serif';
+              ctx.fillText("🌾 COLHER!", spX - 17, bannerY + 9);
+            } else if (isRunning) {
+              // Compact Idle Progress Bar under sprinkler
+              const barW = 26;
+              const barH = 4;
+              const barX = spX - barW / 2;
+              const barY = spY - 14;
+
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+              ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+              ctx.fillStyle = '#38bdf8';
+              ctx.fillRect(barX, barY, Math.max(2, barW * progressPct), barH);
+              ctx.strokeStyle = '#0284c7';
+              ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+
+              // Tiny countdown text
+              ctx.fillStyle = '#f8fafc';
+              ctx.font = '6px monospace';
+              ctx.fillText(`${remainingSeconds}s`, spX - 4, barY - 3);
+            } else if (isAvailable) {
+              // Empty Plot Invitation Sign
+              const bounce = Math.sin(now / 250) * 2;
+              const signY = spY - 18 + bounce;
+
+              ctx.fillStyle = '#78350f';
+              ctx.fillRect(spX - 16, signY, 32, 10);
+              ctx.strokeStyle = '#d97706';
+              ctx.strokeRect(spX - 16, signY, 32, 10);
+
+              ctx.fillStyle = '#fef08a';
+              ctx.font = 'bold 6px sans-serif';
+              ctx.fillText("🌱 Plantar", spX - 13, signY + 7);
+            }
+          }
+        });
       }
     }
 
