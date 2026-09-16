@@ -5,12 +5,14 @@ const storage = require('./storage');
 class FarmEngine {
   constructor() {
     this.state = storage.loadState();
-    // Update crops immediately on start
+    this.processOfflineProgress();
     this.updateGrowth();
+    this.updateIdleProduction();
   }
 
   getState() {
     this.updateGrowth();
+    this.updateIdleProduction();
     return this.state;
   }
 
@@ -876,6 +878,310 @@ class FarmEngine {
     this.updateGrowth();
     this.save();
     return this.getState();
+  }
+
+  updateIdleProduction() {
+    const now = Date.now();
+    let changed = false;
+
+    if (this.state.idlePlots) {
+      for (const plot of this.state.idlePlots) {
+        if (plot.status === 'RUNNING' && plot.completedAt && now >= plot.completedAt) {
+          plot.status = 'COMPLETED';
+          changed = true;
+        }
+      }
+    }
+
+    if (this.state.facilities) {
+      for (const [facKey, fac] of Object.entries(this.state.facilities)) {
+        const elapsedMs = now - (fac.lastCollectedAt || now);
+        const cycles = Math.floor(elapsedMs / (fac.cycleDurationMs || 120000));
+        const newYield = Math.min(fac.maxYield || 12, cycles * (fac.outputPerCycle || 1));
+        if (fac.currentYield !== newYield) {
+          fac.currentYield = newYield;
+          changed = true;
+        }
+      }
+    }
+
+    this.state.lastActive = now;
+    if (changed) {
+      this.save();
+    }
+  }
+
+  processOfflineProgress(forceTimeAway = null) {
+    const now = Date.now();
+    const lastActive = this.state.lastActive || now;
+    const timeAway = forceTimeAway !== null ? forceTimeAway : (now - lastActive);
+
+    // If away for at least 15 seconds
+    if (timeAway >= 15000) {
+      const completedPlots = [];
+      if (this.state.idlePlots) {
+        for (const plot of this.state.idlePlots) {
+          if (plot.status === 'RUNNING') {
+            if (plot.completedAt && now >= plot.completedAt) {
+              plot.status = 'COMPLETED';
+              const cropDef = cropsConfig[plot.cropId];
+              completedPlots.push({
+                plotId: plot.id,
+                plotName: plot.name,
+                cropId: plot.cropId,
+                cropName: cropDef ? cropDef.name : plot.cropId,
+                quantity: plot.quantity,
+                quality: plot.quality
+              });
+            }
+          }
+        }
+      }
+
+      const facilityYields = [];
+      if (this.state.facilities) {
+        for (const [facKey, fac] of Object.entries(this.state.facilities)) {
+          const elapsedMs = now - (fac.lastCollectedAt || (now - timeAway));
+          const cycles = Math.floor(elapsedMs / (fac.cycleDurationMs || 120000));
+          fac.currentYield = Math.min(fac.maxYield || 12, cycles * (fac.outputPerCycle || 1));
+          if (fac.currentYield > 0) {
+            facilityYields.push({
+              facilityId: fac.id,
+              facilityName: fac.name,
+              produceName: fac.produceName,
+              quantity: fac.currentYield
+            });
+          }
+        }
+      }
+
+      if (completedPlots.length > 0 || facilityYields.length > 0 || timeAway >= 60000) {
+        this.state.offlineReport = {
+          timeAwayMs: timeAway,
+          timeAwaySeconds: Math.floor(timeAway / 1000),
+          completedPlots,
+          facilityYields,
+          timestamp: now
+        };
+      }
+      this.state.lastActive = now;
+      this.save();
+    }
+  }
+
+  acknowledgeOfflineReport() {
+    this.state.offlineReport = null;
+    this.save();
+    return { success: true };
+  }
+
+  startPlotProduction(plotId, cropId) {
+    this.updateIdleProduction();
+    if (!this.state.idlePlots) {
+      throw new Error("Talhões não inicializados.");
+    }
+    const plot = this.state.idlePlots.find(p => p.id === Number(plotId));
+    if (!plot) {
+      throw new Error(`Talhão #${plotId} não encontrado.`);
+    }
+    if (plot.status === 'RUNNING') {
+      throw new Error(`Talhão "${plot.name}" já está em cultivo ativo.`);
+    }
+    if (plot.status === 'COMPLETED') {
+      throw new Error(`Talhão "${plot.name}" possui colheita pronta. Colete antes de replantar.`);
+    }
+    const cropDef = cropsConfig[cropId];
+    if (!cropDef) {
+      throw new Error(`Cultura "${cropId}" não reconhecida.`);
+    }
+
+    const cost = cropDef.seedBatchCost || 20;
+    if ((this.state.player.gold || 0) < cost) {
+      throw new Error(`Ouro insuficiente para iniciar lote de ${cropDef.name} (Custo: ${cost}G, Você tem: ${this.state.player.gold}G).`);
+    }
+
+    this.state.player.gold -= cost;
+
+    const now = Date.now();
+    const durationMs = (cropDef.idleDurationSeconds || 60) * 1000;
+    plot.status = 'RUNNING';
+    plot.cropId = cropId;
+    plot.cropName = cropDef.name;
+    plot.startedAt = now;
+    plot.durationMs = durationMs;
+    plot.completedAt = now + durationMs;
+    plot.quantity = cropDef.batchYield || 10;
+    plot.quality = 'normal';
+
+    this.save();
+    return {
+      success: true,
+      plot,
+      idlePlots: this.state.idlePlots,
+      player: this.state.player
+    };
+  }
+
+  collectPlot(plotId) {
+    this.updateIdleProduction();
+    if (!this.state.idlePlots) {
+      throw new Error("Talhões não inicializados.");
+    }
+    const plot = this.state.idlePlots.find(p => p.id === Number(plotId));
+    if (!plot) {
+      throw new Error(`Talhão #${plotId} não encontrado.`);
+    }
+
+    const now = Date.now();
+    if (plot.status !== 'COMPLETED') {
+      if (plot.status === 'RUNNING' && plot.completedAt && now >= plot.completedAt) {
+        plot.status = 'COMPLETED';
+      } else {
+        const remainingSec = plot.completedAt ? Math.max(0, Math.ceil((plot.completedAt - now) / 1000)) : 0;
+        throw new Error(`O lote em "${plot.name}" ainda está em desenvolvimento (${remainingSec}s restantes).`);
+      }
+    }
+
+    const cropDef = cropsConfig[plot.cropId];
+    const produceId = cropDef ? cropDef.produceId : `crop_${plot.cropId}`;
+    const qty = plot.quantity || 10;
+    const quality = plot.quality || 'normal';
+
+    this.addItemToInventory(produceId, qty, quality);
+    const xpGained = (cropDef?.xp || 10) * Math.max(1, Math.floor(qty / 2));
+    this.addPlayerXP(xpGained);
+    this.state.stats.cropsHarvested = (this.state.stats.cropsHarvested || 0) + qty;
+
+    const collectedInfo = {
+      plotId: plot.id,
+      plotName: plot.name,
+      cropId: plot.cropId,
+      cropName: cropDef ? cropDef.name : plot.cropId,
+      produceId,
+      quantity: qty,
+      quality,
+      xpGained
+    };
+
+    plot.status = 'AVAILABLE';
+    plot.cropId = null;
+    plot.cropName = null;
+    plot.startedAt = null;
+    plot.durationMs = null;
+    plot.completedAt = null;
+    plot.quantity = 0;
+
+    this.save();
+    return {
+      success: true,
+      collected: collectedInfo,
+      plot,
+      idlePlots: this.state.idlePlots,
+      inventory: this.state.inventory,
+      player: this.state.player
+    };
+  }
+
+  collectAllPlots() {
+    this.updateIdleProduction();
+    if (!this.state.idlePlots) {
+      throw new Error("Talhões não inicializados.");
+    }
+    const now = Date.now();
+    const readyPlots = this.state.idlePlots.filter(p =>
+      p.status === 'COMPLETED' || (p.status === 'RUNNING' && p.completedAt && now >= p.completedAt)
+    );
+
+    if (readyPlots.length === 0) {
+      throw new Error("Nenhum talhão pronto para colheita no momento.");
+    }
+
+    const collectedList = [];
+    let totalXP = 0;
+
+    for (const plot of readyPlots) {
+      const cropDef = cropsConfig[plot.cropId];
+      const produceId = cropDef ? cropDef.produceId : `crop_${plot.cropId}`;
+      const qty = plot.quantity || 10;
+      const quality = plot.quality || 'normal';
+
+      this.addItemToInventory(produceId, qty, quality);
+      const xpGained = (cropDef?.xp || 10) * Math.max(1, Math.floor(qty / 2));
+      totalXP += xpGained;
+      this.state.stats.cropsHarvested = (this.state.stats.cropsHarvested || 0) + qty;
+
+      collectedList.push({
+        plotId: plot.id,
+        plotName: plot.name,
+        cropId: plot.cropId,
+        cropName: cropDef ? cropDef.name : plot.cropId,
+        produceId,
+        quantity: qty,
+        quality,
+        xpGained
+      });
+
+      plot.status = 'AVAILABLE';
+      plot.cropId = null;
+      plot.cropName = null;
+      plot.startedAt = null;
+      plot.durationMs = null;
+      plot.completedAt = null;
+      plot.quantity = 0;
+    }
+
+    this.addPlayerXP(totalXP);
+    this.save();
+    return {
+      success: true,
+      collectedCount: collectedList.length,
+      collectedList,
+      totalXP,
+      idlePlots: this.state.idlePlots,
+      inventory: this.state.inventory,
+      player: this.state.player
+    };
+  }
+
+  collectFacility(facilityId) {
+    this.updateIdleProduction();
+    if (!this.state.facilities || !this.state.facilities[facilityId]) {
+      throw new Error(`Instalação "${facilityId}" não encontrada.`);
+    }
+    const facility = this.state.facilities[facilityId];
+    if (facility.currentYield <= 0) {
+      throw new Error(`Nenhum produto pronto para coleta no ${facility.name}.`);
+    }
+
+    const qty = facility.currentYield;
+    this.addItemToInventory(facility.produceId, qty, 'normal');
+
+    if (facilityId === 'coop') {
+      this.state.stats.eggsCollected = (this.state.stats.eggsCollected || 0) + qty;
+    } else if (facilityId === 'barn') {
+      this.state.stats.milkProduced = (this.state.stats.milkProduced || 0) + qty;
+    }
+
+    const xpGained = qty * 12;
+    this.addPlayerXP(xpGained);
+
+    facility.currentYield = 0;
+    facility.lastCollectedAt = Date.now();
+
+    this.save();
+    return {
+      success: true,
+      facility,
+      collected: {
+        id: facility.produceId,
+        name: facility.produceName,
+        quantity: qty,
+        xpGained
+      },
+      facilities: this.state.facilities,
+      inventory: this.state.inventory,
+      player: this.state.player
+    };
   }
 }
 

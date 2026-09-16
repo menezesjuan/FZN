@@ -81,6 +81,7 @@ test('FarmEngine: sleep and natural day transition', (t) => {
   const state = farmEngine.getState();
   const dayBefore = state.time.day;
   state.player.energy = 10; // Low energy
+  state.tomorrowWeather = 'sunny'; // Ensure sunny morning so soil dries
 
   // Till, plant and water a test tile
   state.farm.tiles['3,3'].state = 'tilled';
@@ -423,3 +424,137 @@ test('FarmEngine: dynamic weather system, tomorrow forecast, and rainy morning a
   assert.strictEqual(tileA.isWatered, false, 'Soil dries up naturally on a sunny morning');
   assert.strictEqual(tileB.isWatered, false, 'Soil dries up naturally on a sunny morning');
 });
+
+test('FarmEngine: Idle plots management, batch planting, timer progression, and collection', (t) => {
+  const state = farmEngine.getState();
+  assert.ok(Array.isArray(state.idlePlots), 'Idle plots array exists');
+  assert.strictEqual(state.idlePlots.length, 4, '4 Idle plots exist (Alfa, Beta, Gama, Delta)');
+
+  const plot1 = state.idlePlots[0];
+  // Reset plot to AVAILABLE
+  plot1.status = 'AVAILABLE';
+  plot1.cropId = null;
+  plot1.completedAt = null;
+
+  // Give player enough gold
+  state.player.gold = 100;
+  const initialGold = state.player.gold;
+
+  // 1. Start plot production with leek
+  const startRes = farmEngine.startPlotProduction(1, 'leek');
+  assert.strictEqual(startRes.success, true);
+  assert.strictEqual(startRes.plot.status, 'RUNNING');
+  assert.strictEqual(startRes.plot.cropId, 'leek');
+  assert.strictEqual(startRes.plot.quantity, 16);
+  assert.strictEqual(state.player.gold, initialGold - 22, 'Seed batch cost 22G deducted');
+
+  // Cannot start an already running plot
+  assert.throws(() => {
+    farmEngine.startPlotProduction(1, 'strawberry');
+  }, /já está em cultivo ativo/);
+
+  // Cannot collect while still running
+  assert.throws(() => {
+    farmEngine.collectPlot(1);
+  }, /ainda está em desenvolvimento/);
+
+  // 2. Advance time to complete plot
+  plot1.completedAt = Date.now() - 1000;
+  farmEngine.updateIdleProduction();
+  assert.strictEqual(plot1.status, 'COMPLETED');
+
+  // 3. Collect plot
+  const initialHarvested = state.stats.cropsHarvested || 0;
+  const collectRes = farmEngine.collectPlot(1);
+  assert.strictEqual(collectRes.success, true);
+  assert.strictEqual(collectRes.collected.produceId, 'crop_leek');
+  assert.strictEqual(collectRes.collected.quantity, 16);
+  assert.strictEqual(plot1.status, 'AVAILABLE');
+  assert.strictEqual(plot1.cropId, null);
+  assert.strictEqual(state.stats.cropsHarvested, initialHarvested + 16);
+
+  // 4. Batch collect all ready plots
+  const plot2 = state.idlePlots[1];
+  const plot3 = state.idlePlots[2];
+  plot2.status = 'AVAILABLE';
+  plot3.status = 'AVAILABLE';
+  state.player.gold = 200;
+
+  farmEngine.startPlotProduction(2, 'strawberry');
+  farmEngine.startPlotProduction(3, 'potato');
+
+  plot2.completedAt = Date.now() - 1000;
+  plot3.completedAt = Date.now() - 1000;
+
+  const collectAllRes = farmEngine.collectAllPlots();
+  assert.strictEqual(collectAllRes.success, true);
+  assert.strictEqual(collectAllRes.collectedCount, 2);
+  assert.strictEqual(plot2.status, 'AVAILABLE');
+  assert.strictEqual(plot3.status, 'AVAILABLE');
+});
+
+test('FarmEngine: Offline progress calculation and welcome report generation', (t) => {
+  const state = farmEngine.getState();
+  const plot4 = state.idlePlots[3];
+  plot4.status = 'AVAILABLE';
+  state.player.gold = 100;
+
+  // Start plot with onion (45s duration)
+  farmEngine.startPlotProduction(4, 'onion');
+  assert.strictEqual(plot4.status, 'RUNNING');
+
+  // Set last active and planting to 10 minutes ago
+  const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+  state.lastActive = tenMinutesAgo;
+  plot4.startedAt = tenMinutesAgo;
+  plot4.completedAt = tenMinutesAgo + (45 * 1000);
+  state.offlineReport = null;
+
+  // Process offline progress
+  farmEngine.processOfflineProgress();
+
+  assert.ok(state.offlineReport, 'Offline report was generated');
+  assert.ok(state.offlineReport.timeAwaySeconds >= 590, 'Recorded offline time correctly');
+  assert.ok(state.offlineReport.completedPlots.some(p => p.plotId === 4 && p.cropId === 'onion'), 'Plot completed offline');
+  assert.strictEqual(plot4.status, 'COMPLETED');
+
+  // Acknowledge report
+  const ackRes = farmEngine.acknowledgeOfflineReport();
+  assert.strictEqual(ackRes.success, true);
+  assert.strictEqual(state.offlineReport, null, 'Report acknowledged and cleared');
+});
+
+test('FarmEngine: Automated facilities (coop and barn) accumulation and harvesting', (t) => {
+  const state = farmEngine.getState();
+  assert.ok(state.facilities, 'Facilities object exists');
+  assert.ok(state.facilities.coop, 'Coop exists');
+  assert.ok(state.facilities.barn, 'Barn exists');
+
+  // Simulate 10 minutes elapsed for coop (cycle = 2 min, output = 2 eggs -> 5 cycles = 10 eggs)
+  state.facilities.coop.lastCollectedAt = Date.now() - (10 * 60 * 1000);
+  farmEngine.updateIdleProduction();
+  assert.strictEqual(state.facilities.coop.currentYield, 10);
+
+  // Collect coop
+  const initialEggs = state.stats.eggsCollected || 0;
+  const coopRes = farmEngine.collectFacility('coop');
+  assert.strictEqual(coopRes.success, true);
+  assert.strictEqual(coopRes.collected.id, 'produce_egg');
+  assert.strictEqual(coopRes.collected.quantity, 10);
+  assert.strictEqual(state.facilities.coop.currentYield, 0);
+  assert.strictEqual(state.stats.eggsCollected, initialEggs + 10);
+
+  // Simulate 15 minutes elapsed for barn (cycle = 3 min, output = 1 milk -> 5 cycles = 5 milks)
+  state.facilities.barn.lastCollectedAt = Date.now() - (15 * 60 * 1000);
+  farmEngine.updateIdleProduction();
+  assert.strictEqual(state.facilities.barn.currentYield, 5);
+
+  const initialMilk = state.stats.milkProduced || 0;
+  const barnRes = farmEngine.collectFacility('barn');
+  assert.strictEqual(barnRes.success, true);
+  assert.strictEqual(barnRes.collected.id, 'produce_milk');
+  assert.strictEqual(barnRes.collected.quantity, 5);
+  assert.strictEqual(state.facilities.barn.currentYield, 0);
+  assert.strictEqual(state.stats.milkProduced, initialMilk + 5);
+});
+

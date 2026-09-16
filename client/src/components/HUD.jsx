@@ -9,6 +9,7 @@ export default function HUD({
   onSelectSlot, 
   onOpenInventory, 
   onOpenShop,
+  onOpenManagement,
   onDevAdvanceTime,
   onDevRestoreEnergy,
   onDevToggleWeather,
@@ -119,6 +120,14 @@ export default function HUD({
             </button>
             <button className="pixel-btn" onClick={onOpenShop} title="Loja do Vilarejo (B)">
               🏪 Loja
+            </button>
+            <button 
+              className="pixel-btn" 
+              onClick={onOpenManagement} 
+              title="Gestão da Fazenda & Produção Idle (M)"
+              style={{ background: '#2563eb', borderColor: '#1d4ed8', color: '#fff' }}
+            >
+              🚜 Gestão
             </button>
             <button 
               className="pixel-btn" 

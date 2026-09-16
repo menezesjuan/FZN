@@ -8,6 +8,8 @@ import SleepModal from './components/SleepModal';
 import InventoryModal from './components/InventoryModal';
 import ShopModal from './components/ShopModal';
 import ChestModal from './components/ChestModal';
+import OfflineProgressModal from './components/OfflineProgressModal';
+import ManagementDashboard from './components/ManagementDashboard';
 import Toast from './components/Toast';
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isChestOpen, setIsChestOpen] = useState(false);
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [isOfflineReportOpen, setIsOfflineReportOpen] = useState(false);
   const [isFading, setIsFading] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
   const [toast, setToast] = useState({ message: '', type: 'info' });
@@ -53,6 +57,9 @@ export default function App() {
       }
       if (data.state) {
         prevLevelRef.current = data.state.player.level;
+        if (data.state.offlineReport) {
+          setIsOfflineReportOpen(true);
+        }
       }
       setGameState(data.state);
       setCatalog(data.catalog || []);
@@ -79,10 +86,14 @@ export default function App() {
         setIsInventoryOpen(prev => !prev);
       } else if (e.key === 'b' || e.key === 'B') {
         setIsShopOpen(prev => !prev);
+      } else if (e.key === 'm' || e.key === 'M') {
+        setIsManagementOpen(prev => !prev);
       } else if (e.key === 'Escape') {
         setIsInventoryOpen(false);
         setIsShopOpen(false);
         setIsSleepModalOpen(false);
+        setIsManagementOpen(false);
+        setIsOfflineReportOpen(false);
         setIsChestOpen(prev => {
           if (prev) audio.playChestClose();
           return false;
@@ -106,6 +117,21 @@ export default function App() {
     const worldY = y * 16 + 8;
 
     try {
+      // Check if clicked inside an Idle Production Plot
+      const clickedPlot = gameState.idlePlots?.find(p =>
+        x >= p.bounds.x1 && x <= p.bounds.x2 && y >= p.bounds.y1 && y <= p.bounds.y2
+      );
+      if (clickedPlot) {
+        const isReady = clickedPlot.status === 'COMPLETED' ||
+          (clickedPlot.status === 'RUNNING' && clickedPlot.completedAt && Date.now() >= clickedPlot.completedAt);
+        if (isReady) {
+          handleCollectPlot(clickedPlot.id);
+        } else {
+          setIsManagementOpen(true);
+        }
+        return;
+      }
+
       // 1. If crop is ready to harvest, harvest takes priority regardless of tool held
       if (tile.crop && tile.crop.ready) {
         if (engineRef.current) {
@@ -464,6 +490,102 @@ export default function App() {
     }
   };
 
+  const handleStartPlot = async (plotId, cropId) => {
+    try {
+      const res = await api.startPlotProduction(plotId, cropId);
+      if (res.success) {
+        audio.playPlant();
+        showToast(`Talhão iniciado com ${res.plot.cropName}!`, 'success');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCollectPlot = async (plotId) => {
+    try {
+      const res = await api.collectPlot(plotId);
+      if (res.success) {
+        audio.playHarvest(res.collected.quality);
+        showToast(`Colheu ${res.collected.quantity}x ${res.collected.cropName}! (+${res.collected.xpGained} XP)`, 'success');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCollectAllPlots = async () => {
+    try {
+      const res = await api.collectAllPlots();
+      if (res.success) {
+        audio.playHarvest('gold');
+        showToast(`Sucesso! ${res.collectedCount} talhões colhidos (+${res.totalXP} XP)!`, 'success');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleCollectFacility = async (facilityId) => {
+    try {
+      const res = await api.collectFacility(facilityId);
+      if (res.success) {
+        if (facilityId === 'coop') audio.playEgg();
+        else if (facilityId === 'barn') audio.playMilk();
+        showToast(`Recolheu ${res.collected.quantity}x ${res.collected.name}! (+${res.collected.xpGained} XP)`, 'success');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleAcknowledgeOffline = async () => {
+    try {
+      await api.acknowledgeOfflineReport();
+      setIsOfflineReportOpen(false);
+      await loadState();
+    } catch (err) {
+      setIsOfflineReportOpen(false);
+    }
+  };
+
+  const handleOfflineCollectAll = async () => {
+    try {
+      let anyCollected = false;
+      try {
+        const pRes = await api.collectAllPlots();
+        if (pRes.success) anyCollected = true;
+      } catch (_) {}
+
+      if (gameState?.facilities?.coop?.currentYield > 0) {
+        try {
+          await api.collectFacility('coop');
+          anyCollected = true;
+        } catch (_) {}
+      }
+
+      if (gameState?.facilities?.barn?.currentYield > 0) {
+        try {
+          await api.collectFacility('barn');
+          anyCollected = true;
+        } catch (_) {}
+      }
+
+      await api.acknowledgeOfflineReport();
+      setIsOfflineReportOpen(false);
+      audio.playHarvest('gold');
+      showToast(anyCollected ? "Todos os recursos foram recolhidos com sucesso!" : "Relatório finalizado!", "success");
+      await loadState();
+    } catch (err) {
+      showToast(err.message, 'error');
+      setIsOfflineReportOpen(false);
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
@@ -511,6 +633,7 @@ export default function App() {
         onSelectSlot={setSelectedSlot}
         onOpenInventory={() => setIsInventoryOpen(true)}
         onOpenShop={() => setIsShopOpen(true)}
+        onOpenManagement={() => setIsManagementOpen(prev => !prev)}
         onDevAdvanceTime={handleDevAdvanceTime}
         onDevRestoreEnergy={handleDevRestoreEnergy}
         onDevToggleWeather={handleDevToggleWeather}
@@ -564,6 +687,29 @@ export default function App() {
         onDeposit={handleDepositToChest}
         onWithdraw={handleWithdrawFromChest}
         onQuickStack={handleQuickStackChest}
+      />
+
+      {/* Idle Management Dashboard Modal */}
+      <ManagementDashboard
+        isOpen={isManagementOpen}
+        onClose={() => setIsManagementOpen(false)}
+        idlePlots={gameState?.idlePlots || []}
+        facilities={gameState?.facilities || {}}
+        cropsConfig={cropsConfig || {}}
+        playerMoney={gameState?.player?.money || 0}
+        stats={gameState?.stats || {}}
+        onStartPlot={handleStartPlot}
+        onCollectPlot={handleCollectPlot}
+        onCollectAllPlots={handleCollectAllPlots}
+        onCollectFacility={handleCollectFacility}
+      />
+
+      {/* Welcome Back / Offline Progress Modal */}
+      <OfflineProgressModal
+        isOpen={isOfflineReportOpen}
+        report={gameState?.offlineReport}
+        onCollectAll={handleOfflineCollectAll}
+        onClose={handleAcknowledgeOffline}
       />
     </div>
   );

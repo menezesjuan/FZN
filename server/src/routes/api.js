@@ -259,4 +259,77 @@ router.post('/dev/set-weather', (req, res) => {
   }
 });
 
+// Idle Management: Start plot production
+router.post('/idle/start-plot', (req, res) => {
+  try {
+    const { plotId, cropId } = req.body;
+    if (!plotId || !cropId) {
+      return res.status(400).json({ success: false, error: "plotId e cropId são obrigatórios." });
+    }
+    const result = farmEngine.startPlotProduction(plotId, cropId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Idle Management: Collect mature plot
+router.post('/idle/collect-plot', (req, res) => {
+  try {
+    const { plotId } = req.body;
+    if (!plotId) {
+      return res.status(400).json({ success: false, error: "plotId é obrigatório." });
+    }
+    const result = farmEngine.collectPlot(plotId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Idle Management: Collect all mature plots
+router.post('/idle/collect-all', (req, res) => {
+  try {
+    const result = farmEngine.collectAllPlots();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Idle Management: Collect facility yield (coop, barn)
+router.post('/idle/collect-facility', (req, res) => {
+  try {
+    const { facilityId } = req.body;
+    if (!facilityId) {
+      return res.status(400).json({ success: false, error: "facilityId é obrigatório." });
+    }
+    const result = farmEngine.collectFacility(facilityId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Idle Management: Acknowledge offline report
+router.post('/idle/acknowledge-offline', (req, res) => {
+  try {
+    const result = farmEngine.acknowledgeOfflineReport();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Dev helper: simulate offline elapsed time
+router.post('/dev/simulate-offline', (req, res) => {
+  try {
+    const seconds = Number(req.body.seconds) || 120;
+    farmEngine.processOfflineProgress(seconds * 1000);
+    res.json({ success: true, state: farmEngine.getState() });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

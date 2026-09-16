@@ -42,5 +42,11 @@ export const api = {
   devAdvanceTime: (seconds = 60) => request('/dev/advance-time', { method: 'POST', body: JSON.stringify({ seconds }) }),
   devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' }),
   getWeatherForecast: () => request('/weather/forecast'),
-  devSetWeather: (weather, tomorrowWeather) => request('/dev/set-weather', { method: 'POST', body: JSON.stringify({ weather, tomorrowWeather }) })
+  devSetWeather: (weather, tomorrowWeather) => request('/dev/set-weather', { method: 'POST', body: JSON.stringify({ weather, tomorrowWeather }) }),
+  startPlotProduction: (plotId, cropId) => request('/idle/start-plot', { method: 'POST', body: JSON.stringify({ plotId, cropId }) }),
+  collectPlot: (plotId) => request('/idle/collect-plot', { method: 'POST', body: JSON.stringify({ plotId }) }),
+  collectAllPlots: () => request('/idle/collect-all', { method: 'POST' }),
+  collectFacility: (facilityId) => request('/idle/collect-facility', { method: 'POST', body: JSON.stringify({ facilityId }) }),
+  acknowledgeOfflineReport: () => request('/idle/acknowledge-offline', { method: 'POST' }),
+  devSimulateOffline: (seconds = 120) => request('/dev/simulate-offline', { method: 'POST', body: JSON.stringify({ seconds }) })
 };

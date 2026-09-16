@@ -95,6 +95,40 @@ function getDefaultGameState() {
     },
     weather: "sunny",
     tomorrowWeather: "sunny",
+    lastActive: Date.now(),
+    offlineReport: null,
+    idlePlots: [
+      { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
+      { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
+      { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
+      { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
+    ],
+    facilities: {
+      coop: {
+        id: "coop",
+        name: "Galinheiro Automatizado",
+        status: "RUNNING",
+        cycleDurationMs: 120000,
+        lastCollectedAt: Date.now(),
+        outputPerCycle: 2,
+        currentYield: 0,
+        maxYield: 12,
+        produceId: "produce_egg",
+        produceName: "Ovo Caipira"
+      },
+      barn: {
+        id: "barn",
+        name: "Curral Leiteiro",
+        status: "RUNNING",
+        cycleDurationMs: 180000,
+        lastCollectedAt: Date.now(),
+        outputPerCycle: 1,
+        currentYield: 0,
+        maxYield: 8,
+        produceId: "produce_milk",
+        produceName: "Leite Fresco Caipira"
+      }
+    },
     lastSaved: Date.now()
   };
 }
@@ -167,6 +201,48 @@ class StorageService {
         }
         if (!state.tomorrowWeather) {
           state.tomorrowWeather = 'sunny';
+        }
+        if (!state.lastActive) {
+          state.lastActive = Date.now();
+        }
+        if (!state.idlePlots) {
+          state.idlePlots = [
+            { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
+            { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
+            { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
+            { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
+          ];
+        }
+        if (!state.facilities) {
+          state.facilities = {
+            coop: {
+              id: "coop",
+              name: "Galinheiro Automatizado",
+              status: "RUNNING",
+              cycleDurationMs: 120000,
+              lastCollectedAt: Date.now(),
+              outputPerCycle: 2,
+              currentYield: 0,
+              maxYield: 12,
+              produceId: "produce_egg",
+              produceName: "Ovo Caipira"
+            },
+            barn: {
+              id: "barn",
+              name: "Curral Leiteiro",
+              status: "RUNNING",
+              cycleDurationMs: 180000,
+              lastCollectedAt: Date.now(),
+              outputPerCycle: 1,
+              currentYield: 0,
+              maxYield: 8,
+              produceId: "produce_milk",
+              produceName: "Leite Fresco Caipira"
+            }
+          };
+        }
+        if (state.offlineReport === undefined) {
+          state.offlineReport = null;
         }
         return state;
       }

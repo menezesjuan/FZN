@@ -1052,6 +1052,9 @@ export class GameEngine {
       // 1. Draw Farm Ground (Grass, Tilled soil, Watered highlight, Stone paths)
       this.renderFarmGround(ctx);
 
+      // 1.5 Draw Idle Cultivation Plots Ground
+      this.renderIdlePlotsGround(ctx);
+
       // 2. Draw Fences (Perimeter and decor)
       this.renderFences(ctx);
 
@@ -1135,49 +1138,125 @@ export class GameEngine {
     }
   }
 
+  renderIdlePlotsGround(ctx) {
+    if (!this.gameState || !this.gameState.idlePlots) return;
+
+    for (const plot of this.gameState.idlePlots) {
+      const { x1, y1, x2, y2 } = plot.bounds;
+      const plotScreenX = x1 * TILE_SIZE;
+      const plotScreenY = y1 * TILE_SIZE;
+      const plotW = (x2 - x1 + 1) * TILE_SIZE;
+      const plotH = (y2 - y1 + 1) * TILE_SIZE;
+
+      const isRunning = plot.status === 'RUNNING';
+      const isReady = plot.status === 'COMPLETED' || (isRunning && plot.completedAt && Date.now() >= plot.completedAt);
+
+      if (isRunning || isReady) {
+        // Tilled rich soil background for active plots
+        ctx.fillStyle = isReady ? '#4a2f1b' : '#5c3a21';
+        ctx.fillRect(plotScreenX, plotScreenY, plotW, plotH);
+
+        // Soil furrows
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        for (let fy = plotScreenY + 6; fy < plotScreenY + plotH; fy += 8) {
+          ctx.fillRect(plotScreenX + 2, fy, plotW - 4, 2);
+        }
+
+        // Moist soil highlight
+        ctx.fillStyle = 'rgba(70, 150, 240, 0.12)';
+        ctx.fillRect(plotScreenX, plotScreenY, plotW, plotH);
+      } else {
+        // Available plot: neat dashed boundary
+        ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(plotScreenX + 1.5, plotScreenY + 1.5, plotW - 3, plotH - 3);
+        ctx.setLineDash([]);
+      }
+
+      // Plot border frame
+      ctx.strokeStyle = isReady ? '#22c55e' : (isRunning ? '#3b82f6' : 'rgba(180, 130, 80, 0.5)');
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(plotScreenX + 0.5, plotScreenY + 0.5, plotW - 1, plotH - 1);
+
+      // Plot sign badge
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(plotScreenX + 2, plotScreenY + 2, 44, 9);
+      ctx.fillStyle = isReady ? '#86efac' : (isRunning ? '#93c5fd' : '#fef08a');
+      ctx.font = '6px monospace';
+      ctx.fillText(plot.name.replace('Talhão ', 'T-'), plotScreenX + 4, plotScreenY + 8);
+    }
+  }
+
   renderFences(ctx) {
     const fenceImg = this.images.fence;
     if (!fenceImg) return;
 
-    // Fence section above the cultivation plots (e.g. y=1, from x=7 to x=12)
-    for (let x = 7; x <= 12; x++) {
-      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 1 * TILE_SIZE, 16, 16);
-    }
+    // Helper to draw 16x16 fence piece from Fence's copiar.png (48x80 = 3 cols x 5 rows)
+    const drawPiece = (piece, tileX, tileY) => {
+      let sx = 16, sy = 32;
+      switch (piece) {
+        case 'corner_nw':     sx = 0;  sy = 0;  break; // top-left corner
+        case 'horizontal_t':  sx = 16; sy = 0;  break; // top horizontal rail
+        case 'corner_ne':     sx = 32; sy = 0;  break; // top-right corner
+        case 'vertical_w':    sx = 0;  sy = 16; break; // west vertical post
+        case 'vertical_e':    sx = 32; sy = 16; break; // east vertical post
+        case 'corner_sw':     sx = 0;  sy = 32; break; // bottom-left corner
+        case 'horizontal_b':  sx = 16; sy = 32; break; // bottom horizontal rail
+        case 'corner_se':     sx = 32; sy = 32; break; // bottom-right corner
+        case 'post_cap_l':    sx = 16; sy = 48; break; // post cap ending left
+        case 'post_cap_r':    sx = 32; sy = 48; break; // post cap ending right
+        case 'post_isolated': sx = 16; sy = 64; break; // gate post
+        default: break;
+      }
+      ctx.drawImage(fenceImg, sx, sy, 16, 16, tileX * TILE_SIZE, tileY * TILE_SIZE, 16, 16);
+    };
 
-    // Pasture top fence (y=1, from x=19 to x=23)
-    for (let x = 19; x <= 23; x++) {
-      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 1 * TILE_SIZE, 16, 16);
+    // 1. Decorative fence above the cultivation plots (y=1, from x=7 to x=12)
+    drawPiece('post_cap_l', 7, 1);
+    for (let x = 8; x <= 11; x++) {
+      drawPiece('horizontal_b', x, 1);
     }
+    drawPiece('post_cap_r', 12, 1);
 
-    // Pasture right fence (x=23, from y=2 to y=4)
+    // 2. Chicken Pasture Enclosure (x=19 to 23, y=1 to 5)
+    drawPiece('corner_nw', 19, 1);
+    for (let x = 20; x <= 22; x++) {
+      drawPiece('horizontal_t', x, 1);
+    }
+    drawPiece('corner_ne', 23, 1);
+
     for (let y = 2; y <= 4; y++) {
-      ctx.drawImage(fenceImg, 16, 32, 16, 16, 23 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+      drawPiece('vertical_e', 23, y);
     }
 
-    // Pasture bottom fence (y=5, from x=20 to x=23, leaves x=19 open as entrance gate)
-    for (let x = 20; x <= 23; x++) {
-      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 5 * TILE_SIZE, 16, 16);
+    drawPiece('corner_se', 23, 5);
+    for (let x = 21; x <= 22; x++) {
+      drawPiece('horizontal_b', x, 5);
     }
+    drawPiece('post_isolated', 20, 5); // Gate opening at x=19
 
-    // Cattle pasture top fence (y=8, from x=19 to x=23)
-    for (let x = 19; x <= 23; x++) {
-      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 8 * TILE_SIZE, 16, 16);
+    // 3. Cattle Pasture Enclosure (x=18 to 23, y=8 to 12)
+    drawPiece('corner_nw', 19, 8);
+    for (let x = 20; x <= 22; x++) {
+      drawPiece('horizontal_t', x, 8);
     }
+    drawPiece('corner_ne', 23, 8);
 
-    // Cattle pasture right fence (x=23, from y=9 to y=11)
     for (let y = 9; y <= 11; y++) {
-      ctx.drawImage(fenceImg, 16, 32, 16, 16, 23 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+      drawPiece('vertical_e', 23, y);
     }
 
-    // Cattle pasture bottom fence (y=12, from x=19 to x=23)
-    for (let x = 19; x <= 23; x++) {
-      ctx.drawImage(fenceImg, 0, 32, 16, 16, x * TILE_SIZE, 12 * TILE_SIZE, 16, 16);
+    drawPiece('corner_sw', 18, 12);
+    for (let x = 19; x <= 22; x++) {
+      drawPiece('horizontal_b', x, 12);
     }
+    drawPiece('corner_se', 23, 12);
 
-    // Cattle pasture left fence (x=18, from y=10 to y=12, leaves y=9 open as gate)
-    for (let y = 10; y <= 12; y++) {
-      ctx.drawImage(fenceImg, 16, 32, 16, 16, 18 * TILE_SIZE, y * TILE_SIZE, 16, 16);
+    for (let y = 10; y <= 11; y++) {
+      drawPiece('vertical_w', 18, y);
     }
+    drawPiece('post_isolated', 18, 10); // Gate opening at y=9
   }
 
   renderDepthSortedEntities(ctx) {
@@ -1292,6 +1371,59 @@ export class GameEngine {
             }
           }
         });
+      }
+    }
+
+    // 4.1 Idle Cultivation Plot Crops
+    if (this.gameState && this.gameState.idlePlots && cropsImg) {
+      const now = Date.now();
+      for (const plot of this.gameState.idlePlots) {
+        if (!plot.cropId) continue;
+        const isReady = plot.status === 'COMPLETED' || (plot.status === 'RUNNING' && plot.completedAt && now >= plot.completedAt);
+        const isRunning = plot.status === 'RUNNING' && !isReady;
+        if (!isRunning && !isReady) continue;
+
+        const cropDef = cropsConfig[plot.cropId] || {};
+        const rowIndex = cropDef.rowIndex !== undefined ? cropDef.rowIndex : 0;
+        const maxStages = cropDef.stages || 6;
+
+        let stage = maxStages - 1;
+        if (isRunning && plot.startedAt && plot.durationMs) {
+          const elapsed = now - plot.startedAt;
+          const pct = Math.min(1, Math.max(0, elapsed / plot.durationMs));
+          stage = Math.min(maxStages - 1, Math.floor(pct * maxStages));
+        }
+
+        const { x1, y1, x2, y2 } = plot.bounds;
+        for (let ty = y1; ty <= y2; ty++) {
+          for (let tx = x1; tx <= x2; tx++) {
+            const destX = tx * TILE_SIZE;
+            const destY = ty * TILE_SIZE - 16;
+            const sortY = ty * TILE_SIZE + 14;
+
+            entities.push({
+              sortY,
+              render: () => {
+                ctx.drawImage(cropsImg, stage * 16, rowIndex * 32, 16, 32, destX, destY, 16, 32);
+
+                // If mature, show pulsing sparkle and collect sign on center tile
+                if (isReady && tx === x1 + 1 && ty === y1 + 1) {
+                  const bounce = Math.sin(now / 180) * 3;
+                  ctx.fillStyle = '#ffec40';
+                  ctx.beginPath();
+                  ctx.arc(destX + 8, destY + bounce + 2, 4, 0, Math.PI * 2);
+                  ctx.fill();
+
+                  ctx.fillStyle = '#166534';
+                  ctx.fillRect(destX - 8, destY + bounce - 10, 32, 8);
+                  ctx.fillStyle = '#86efac';
+                  ctx.font = 'bold 6px monospace';
+                  ctx.fillText("COLHER", destX - 6, destY + bounce - 4);
+                }
+              }
+            });
+          }
+        }
       }
     }
 
