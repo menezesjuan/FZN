@@ -161,3 +161,22 @@ test('100% IDLE Automation: halts with INSUFFICIENT_FUNDS when cash is empty', (
   assert.strictEqual(plot.status, 'INSUFFICIENT_FUNDS');
   assert.strictEqual(plot.autoError, 'OUT_OF_MONEY');
 });
+
+test('100% IDLE & Inventory: player has isIdleAuthorized and clean non-redundant inventory', (t) => {
+  const state = farmEngine.getState();
+  assert.strictEqual(state.player.isIdleAuthorized, true, 'User has 100% IDLE authorization');
+
+  // Verify chopTree works when tool_axe is in toolsOwned without occupying inventory slot
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe', 'tool_axe'];
+  state.inventory = state.inventory.filter(i => !i.id.startsWith('tool_'));
+  assert.strictEqual(state.inventory.some(i => i.id === 'tool_axe'), false);
+
+  const initialTree = state.farm.trees[0];
+  initialTree.health = 3;
+  initialTree.isStump = false;
+  state.player.energy = 100;
+
+  const res = farmEngine.chopTree(initialTree.id, initialTree.x, initialTree.y);
+  assert.strictEqual(res.success, true);
+  assert.strictEqual(initialTree.health, 2);
+});

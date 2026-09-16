@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio, onStartProcessor, onCollectProcessor) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio, onStartProcessor, onCollectProcessor, onStartPlot, onCollectPlot) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -20,7 +20,15 @@ export class GameEngine {
     this.onTuneRadio = onTuneRadio;
     this.onStartProcessor = onStartProcessor;
     this.onCollectProcessor = onCollectProcessor;
+    this.onStartPlot = onStartPlot;
+    this.onCollectPlot = onCollectPlot;
     this.location = 'farm'; // 'farm' | 'house_interior'
+
+    // 100% IDLE Autonomous Pilot Bot
+    this.isIdleBotEnabled = true;
+    this.manualInputTimer = 0;
+    this.idleBotCooldown = 0;
+    this.idleBotActionLabel = 'Vigilante da Fazenda';
 
     // Stardew Valley Artisan Machines (outdoor production yard next to chest)
     this.artisanMachines = [
@@ -652,6 +660,13 @@ export class GameEngine {
     this.isChestOpen = !!isOpen;
   }
 
+  setIdleBot(enabled) {
+    this.isIdleBotEnabled = !!enabled;
+    if (!this.isIdleBotEnabled) {
+      this.idleBotActionLabel = 'Piloto Pausado';
+    }
+  }
+
   shakeTree(treeId) {
     this.treeShakes[treeId] = 0.22;
   }
@@ -905,73 +920,45 @@ export class GameEngine {
     }
   }
 
-    // Movement calculation
-    let dx = 0;
-    let dy = 0;
+    // Check manual keyboard movement input
+    let manualDx = 0;
+    let manualDy = 0;
 
-    if (this.keys['KeyW'] || this.keys['ArrowUp']) dy -= 1;
-    if (this.keys['KeyS'] || this.keys['ArrowDown']) dy += 1;
-    if (this.keys['KeyA'] || this.keys['ArrowLeft']) dx -= 1;
-    if (this.keys['KeyD'] || this.keys['ArrowRight']) dx += 1;
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) manualDy -= 1;
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) manualDy += 1;
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) manualDx -= 1;
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) manualDx += 1;
 
-    // Normalize diagonal speed
-    if (dx !== 0 && dy !== 0) {
-      dx *= 0.7071;
-      dy *= 0.7071;
-    }
+    const hasManualMovement = manualDx !== 0 || manualDy !== 0;
 
-    this.player.isMoving = dx !== 0 || dy !== 0;
+    if (hasManualMovement) {
+      this.manualInputTimer = 2.0; // Pause autonomous bot for 2s during and after manual keypress
+      this.idleBotActionLabel = 'Controle Manual';
 
-    if (this.player.isMoving) {
-      if (Math.abs(dx) > Math.abs(dy)) {
-        this.player.direction = dx > 0 ? 'right' : 'left';
+      if (manualDx !== 0 && manualDy !== 0) {
+        manualDx *= 0.7071;
+        manualDy *= 0.7071;
+      }
+
+      this.player.isMoving = true;
+      if (Math.abs(manualDx) > Math.abs(manualDy)) {
+        this.player.direction = manualDx > 0 ? 'right' : 'left';
       } else {
-        this.player.direction = dy > 0 ? 'down' : 'up';
+        this.player.direction = manualDy > 0 ? 'down' : 'up';
       }
 
-      // Smooth collision resolution with independent X & Y axis checking (wall sliding)
-      const moveDistX = dx * this.player.speed * dt;
-      const moveDistY = dy * this.player.speed * dt;
-
-      // Test X movement
-      const testBoxX = {
-        x: this.player.x + moveDistX + this.player.hitbox.offsetX,
-        y: this.player.y + this.player.hitbox.offsetY,
-        w: this.player.hitbox.width,
-        h: this.player.hitbox.height
-      };
-
-      if (!this.checkCollision(testBoxX)) {
-        this.player.x += moveDistX;
-      }
-
-      // Test Y movement
-      const testBoxY = {
-        x: this.player.x + this.player.hitbox.offsetX,
-        y: this.player.y + moveDistY + this.player.hitbox.offsetY,
-        w: this.player.hitbox.width,
-        h: this.player.hitbox.height
-      };
-
-      if (!this.checkCollision(testBoxY)) {
-        this.player.y += moveDistY;
-      }
-
-      // Walk animation
-      this.player.animTimer += dt;
-      if (this.player.animTimer >= 0.11) {
-        this.player.animTimer = 0;
-        this.player.frame = (this.player.frame + 1) % 6;
-        if (this.player.frame === 1 || this.player.frame === 4) {
-          audio.playFootstep();
-        }
-      }
+      this.applyPlayerMovement(manualDx, manualDy, dt);
     } else {
-      // Idle animation
-      this.player.animTimer += dt;
-      if (this.player.animTimer >= 0.25) {
-        this.player.animTimer = 0;
-        this.player.frame = (this.player.frame + 1) % 4;
+      if (this.manualInputTimer > 0) {
+        this.manualInputTimer = Math.max(0, this.manualInputTimer - dt);
+        this.player.isMoving = false;
+        this.updatePlayerIdleAnimation(dt);
+      } else if (this.isIdleBotEnabled && this.location === 'farm') {
+        // Run 100% IDLE Autonomous Bot
+        this.updateIdleBot(dt);
+      } else {
+        this.player.isMoving = false;
+        this.updatePlayerIdleAnimation(dt);
       }
     }
 
@@ -1141,6 +1128,302 @@ export class GameEngine {
 
     if (this.lightningFlashAlpha > 0) {
       this.lightningFlashAlpha = Math.max(0, this.lightningFlashAlpha - 5.5 * dt);
+    }
+  }
+
+  applyPlayerMovement(dx, dy, dt) {
+    const moveDistX = dx * this.player.speed * dt;
+    const moveDistY = dy * this.player.speed * dt;
+
+    // Test X movement
+    const testBoxX = {
+      x: this.player.x + moveDistX + this.player.hitbox.offsetX,
+      y: this.player.y + this.player.hitbox.offsetY,
+      w: this.player.hitbox.width,
+      h: this.player.hitbox.height
+    };
+
+    let movedX = false;
+    if (!this.checkCollision(testBoxX)) {
+      this.player.x += moveDistX;
+      movedX = true;
+    }
+
+    // Test Y movement
+    const testBoxY = {
+      x: this.player.x + this.player.hitbox.offsetX,
+      y: this.player.y + moveDistY + this.player.hitbox.offsetY,
+      w: this.player.hitbox.width,
+      h: this.player.hitbox.height
+    };
+
+    let movedY = false;
+    if (!this.checkCollision(testBoxY)) {
+      this.player.y += moveDistY;
+      movedY = true;
+    }
+
+    // Walk animation steps
+    this.player.animTimer += dt;
+    if (this.player.animTimer >= 0.11) {
+      this.player.animTimer = 0;
+      this.player.frame = (this.player.frame + 1) % 6;
+      if (this.player.frame === 1 || this.player.frame === 4) {
+        audio.playFootstep();
+      }
+    }
+
+    return { movedX, movedY };
+  }
+
+  updatePlayerIdleAnimation(dt) {
+    this.player.animTimer += dt;
+    if (this.player.animTimer >= 0.25) {
+      this.player.animTimer = 0;
+      this.player.frame = (this.player.frame + 1) % 4;
+    }
+  }
+
+  navigateTowards(targetX, targetY, dt) {
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+    let dx = targetX - playerCenterX;
+    let dy = targetY - playerCenterY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 4) {
+      this.player.isMoving = false;
+      this.updatePlayerIdleAnimation(dt);
+      return;
+    }
+
+    dx /= dist;
+    dy /= dist;
+
+    this.player.isMoving = true;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.player.direction = dx > 0 ? 'right' : 'left';
+    } else {
+      this.player.direction = dy > 0 ? 'down' : 'up';
+    }
+
+    const { movedX, movedY } = this.applyPlayerMovement(dx, dy, dt);
+
+    // Obstacle slide assistance if running into fence/wall edge
+    if (!movedX && !movedY) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        const nudgeDir = dy !== 0 ? Math.sign(dy) : 1;
+        this.applyPlayerMovement(0, nudgeDir * 0.7, dt);
+      } else {
+        const nudgeDir = dx !== 0 ? Math.sign(dx) : 1;
+        this.applyPlayerMovement(nudgeDir * 0.7, 0, dt);
+      }
+    }
+  }
+
+  updateIdleBot(dt) {
+    if (!this.gameState || this.location !== 'farm') return;
+
+    if (this.idleBotCooldown > 0) {
+      this.idleBotCooldown = Math.max(0, this.idleBotCooldown - dt);
+    }
+
+    const playerCenterX = this.player.x + 16;
+    const playerCenterY = this.player.y + 24;
+
+    // 1. Prioridade 1: Colheita de Talhões Prontos (Ready Crops)
+    const readyPlot = this.gameState.idlePlots?.find(p =>
+      p.status === 'COMPLETED' || (p.status === 'RUNNING' && p.completedAt && Date.now() >= p.completedAt)
+    );
+
+    if (readyPlot) {
+      const targetX = ((readyPlot.bounds.x1 + readyPlot.bounds.x2) / 2) * TILE_SIZE;
+      const targetY = ((readyPlot.bounds.y1 + readyPlot.bounds.y2) / 2) * TILE_SIZE;
+      const dist = Math.hypot(targetX - playerCenterX, targetY - playerCenterY);
+
+      this.idleBotActionLabel = `Colhendo ${readyPlot.name}...`;
+
+      if (dist < 28) {
+        this.player.isMoving = false;
+        this.updatePlayerIdleAnimation(dt);
+
+        if (this.idleBotCooldown <= 0) {
+          const tx = Math.floor(targetX / TILE_SIZE);
+          const ty = Math.floor(targetY / TILE_SIZE);
+          this.triggerToolAction(tx, ty);
+          audio.playHarvest(readyPlot.quality || 'normal');
+          if (this.onCollectPlot) {
+            this.onCollectPlot(readyPlot.id);
+          } else if (this.onTileInteract) {
+            this.onTileInteract(tx, ty);
+          }
+          this.idleBotCooldown = 1.0;
+        }
+        return;
+      } else {
+        this.navigateTowards(targetX, targetY, dt);
+        return;
+      }
+    }
+
+    // 2. Prioridade 2: Replantio de Talhões Livres (Auto Replant)
+    const availablePlot = this.gameState.idlePlots?.find(p => p.status === 'AVAILABLE');
+    if (availablePlot) {
+      const season = this.gameState.time?.season || 'Primavera';
+      const defaultCrops = {
+        'Primavera': 'crop_strawberry',
+        'Verão': 'crop_blueberry',
+        'Outono': 'crop_pumpkin',
+        'Inverno': null
+      };
+      const candidateCrop = availablePlot.assignedCropId || defaultCrops[season] || 'crop_onion';
+
+      if (candidateCrop && season !== 'Inverno') {
+        const targetX = ((availablePlot.bounds.x1 + availablePlot.bounds.x2) / 2) * TILE_SIZE;
+        const targetY = ((availablePlot.bounds.y1 + availablePlot.bounds.y2) / 2) * TILE_SIZE;
+        const dist = Math.hypot(targetX - playerCenterX, targetY - playerCenterY);
+
+        this.idleBotActionLabel = `Replantando ${availablePlot.name}...`;
+
+        if (dist < 28) {
+          this.player.isMoving = false;
+          this.updatePlayerIdleAnimation(dt);
+
+          if (this.idleBotCooldown <= 0) {
+            const tx = Math.floor(targetX / TILE_SIZE);
+            const ty = Math.floor(targetY / TILE_SIZE);
+            this.triggerToolAction(tx, ty);
+            audio.playPlant();
+            if (this.onStartPlot) {
+              this.onStartPlot(availablePlot.id, candidateCrop);
+            }
+            this.idleBotCooldown = 1.0;
+          }
+          return;
+        } else {
+          this.navigateTowards(targetX, targetY, dt);
+          return;
+        }
+      }
+    }
+
+    // 3. Prioridade 3: Ovos no Solo do Pasto
+    const egg = this.gameState.farm?.eggs && this.gameState.farm.eggs.length > 0 ? this.gameState.farm.eggs[0] : null;
+    if (egg) {
+      const targetX = egg.x * TILE_SIZE;
+      const targetY = egg.y * TILE_SIZE;
+      const dist = Math.hypot(targetX - playerCenterX, targetY - playerCenterY);
+
+      this.idleBotActionLabel = 'Recolhendo Ovo no Pasto...';
+
+      if (dist < 24) {
+        this.player.isMoving = false;
+        this.updatePlayerIdleAnimation(dt);
+
+        if (this.idleBotCooldown <= 0) {
+          this.triggerToolAction(egg.x, egg.y);
+          audio.playEgg();
+          if (this.onCollectEgg) {
+            this.onCollectEgg(egg.id);
+          }
+          this.idleBotCooldown = 1.0;
+        }
+        return;
+      } else {
+        // Enclosure navigation: gateway is at (20, 5.5)
+        if (playerCenterX < 19 * TILE_SIZE && egg.x >= 19) {
+          this.navigateTowards(20 * TILE_SIZE, 5.5 * TILE_SIZE, dt);
+        } else {
+          this.navigateTowards(targetX, targetY, dt);
+        }
+        return;
+      }
+    }
+
+    // 4. Prioridade 4: Ordenhar Vacas Leiteiras
+    const currentDay = this.gameState.time?.day || 1;
+    const hasPail = this.gameState.toolsOwned?.includes('tool_pail');
+    const readyCow = this.animals?.find(a =>
+      (a.type === 'female_cow' || a.type === 'male_cow') &&
+      a.isAlive !== false &&
+      a.lastMilkedDay !== currentDay
+    );
+
+    if (readyCow && hasPail) {
+      const cowCenterX = readyCow.x + 16;
+      const cowCenterY = readyCow.y + 16;
+      const dist = Math.hypot(cowCenterX - playerCenterX, cowCenterY - playerCenterY);
+
+      this.idleBotActionLabel = `Ordenhando ${readyCow.name}...`;
+
+      if (dist < 28) {
+        this.player.isMoving = false;
+        this.updatePlayerIdleAnimation(dt);
+
+        if (this.idleBotCooldown <= 0) {
+          const tx = Math.floor(cowCenterX / TILE_SIZE);
+          const ty = Math.floor(cowCenterY / TILE_SIZE);
+          this.triggerToolAction(tx, ty);
+          audio.playMilk();
+          if (this.onMilkCow) {
+            this.onMilkCow(readyCow.id, tx, ty);
+          }
+          this.idleBotCooldown = 1.2;
+        }
+        return;
+      } else {
+        // Cattle enclosure gateway is at (18, 9.5)
+        if (playerCenterX < 18 * TILE_SIZE && (cowCenterX / TILE_SIZE) >= 18) {
+          this.navigateTowards(18 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
+        } else {
+          this.navigateTowards(cowCenterX, cowCenterY, dt);
+        }
+        return;
+      }
+    }
+
+    // 5. Prioridade 5: Recolher Máquinas Artesanais Prontas
+    if (this.gameState.processors) {
+      for (const machine of this.artisanMachines) {
+        const proc = this.gameState.processors[machine.id];
+        if (proc && (proc.status === 'COMPLETED' || (proc.status === 'PROCESSING' && proc.completedAt && Date.now() >= proc.completedAt))) {
+          const targetX = machine.x + 8;
+          const targetY = machine.y + 8;
+          const dist = Math.hypot(targetX - playerCenterX, targetY - playerCenterY);
+
+          this.idleBotActionLabel = `Recolhendo da ${machine.name}...`;
+
+          if (dist < 24) {
+            this.player.isMoving = false;
+            this.updatePlayerIdleAnimation(dt);
+
+            if (this.idleBotCooldown <= 0) {
+              if (this.onCollectProcessor) {
+                this.onCollectProcessor(machine.id);
+              }
+              this.idleBotCooldown = 1.0;
+            }
+            return;
+          } else {
+            this.navigateTowards(targetX, targetY, dt);
+            return;
+          }
+        }
+      }
+    }
+
+    // 6. Patrulha / Posição Vigilante
+    const patrolX = 6 * TILE_SIZE + 8;
+    const patrolY = 7 * TILE_SIZE + 8;
+    const dist = Math.hypot(patrolX - playerCenterX, patrolY - playerCenterY);
+
+    if (dist > 20) {
+      this.idleBotActionLabel = 'Retornando à Posição Central...';
+      this.navigateTowards(patrolX, patrolY, dt);
+    } else {
+      this.idleBotActionLabel = '100% IDLE: Vigilante da Fazenda';
+      this.player.isMoving = false;
+      this.updatePlayerIdleAnimation(dt);
     }
   }
 
@@ -2085,6 +2368,12 @@ export class GameEngine {
       ctx.drawImage(img, srcX, srcY, 32, 32, drawX, drawY, 32, 32);
     }
     ctx.restore();
+
+    // Floating Autonomous Bot Status Badge above player head
+    if (this.isIdleBotEnabled && this.location === 'farm') {
+      const tagText = `🤖 ${this.idleBotActionLabel || 'Piloto IDLE'}`;
+      this.drawContextTooltip(ctx, posX + 16, posY - 4, tagText, '#10b981', '#6ee7b7');
+    }
   }
 
   drawContextTooltip(ctx, worldX, worldY, text, borderColor = '#f59e0b', textColor = '#ffffff') {

@@ -39,11 +39,13 @@ export default function App() {
   const [isFading, setIsFading] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
   const [toast, setToast] = useState({ message: '', type: 'info' });
+  const [isIdleBotActive, setIsIdleBotActive] = useState(true);
 
   const engineRef = useRef(null);
   const toastTimeoutRef = useRef(null);
   const prevLevelRef = useRef(null);
   const harvestAllRef = useRef(null);
+  const toggleIdleBotRef = useRef(null);
 
   const showToast = useCallback((message, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -101,8 +103,10 @@ export default function App() {
         setIsShopOpen(prev => !prev);
       } else if (e.key === 'm' || e.key === 'M') {
         setIsManagementOpen(prev => !prev);
-      } else if (e.key === 'e' || e.key === 'E') {
+      } else if (e.key === 'k' || e.key === 'K') {
         setIsMarketOpen(prev => !prev);
+      } else if (e.key === 'z' || e.key === 'Z') {
+        toggleIdleBotRef.current?.();
       } else if (e.key === 't' || e.key === 'T') {
         setIsToolsShopOpen(prev => !prev);
       } else if (e.key === 'r' || e.key === 'R') {
@@ -710,7 +714,25 @@ export default function App() {
       showToast(err.message, 'error');
     }
   };
-  harvestAllRef.current = handleHarvestAll;
+  const isIdleAuthorized = gameState?.player?.isIdleAuthorized ?? true;
+
+  const handleToggleIdleBot = useCallback(() => {
+    if (!isIdleAuthorized) {
+      showToast("Autorização necessária para o Piloto Automático 100% IDLE.", "warning");
+      return;
+    }
+    setIsIdleBotActive(prev => {
+      const next = !prev;
+      if (next) {
+        audio.playCoin();
+        showToast("🤖 Piloto Automático 100% IDLE ATIVADO! O fazendeiro agora caminha, colhe e replanta sozinho.", "success");
+      } else {
+        showToast("🤖 Piloto Automático 100% IDLE PAUSADO.", "info");
+      }
+      return next;
+    });
+  }, [isIdleAuthorized, showToast]);
+  toggleIdleBotRef.current = handleToggleIdleBot;
 
   // ── Marketplace handlers ──
   const handleOpenMarket = useCallback(async () => {
@@ -860,6 +882,9 @@ export default function App() {
         onTransitionLocation={handleTransitionLocation}
         onStartProcessor={handleStartProcessor}
         onCollectProcessor={handleCollectProcessor}
+        onStartPlot={handleStartPlot}
+        onCollectPlot={handleCollectPlot}
+        isIdleBotActive={isIdleBotActive}
         engineRef={engineRef}
       />
 
@@ -888,6 +913,9 @@ export default function App() {
         onOpenToolsShop={() => setIsToolsShopOpen(prev => !prev)}
         onOpenRanch={() => setIsRanchOpen(prev => !prev)}
         onOpenLicenses={() => setIsLicensesOpen(prev => !prev)}
+        isIdleBotActive={isIdleBotActive}
+        onToggleIdleBot={handleToggleIdleBot}
+        isIdleAuthorized={isIdleAuthorized}
       />
 
       {/* Dynamic Quest & Onboarding Guide */}

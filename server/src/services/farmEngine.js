@@ -551,8 +551,7 @@ class FarmEngine {
       throw new Error("Você está exausto demais para cortar árvores! Descanse na casa da fazenda.");
     }
 
-    const hasAxe = this.state.inventory.some(i => i.id === 'tool_axe');
-    if (!hasAxe) {
+    if (!this.hasTool('tool_axe')) {
       throw new Error("Você precisa de um machado para cortar árvores!");
     }
 

@@ -17,6 +17,9 @@ export default function GameCanvas({
   onTuneRadio,
   onStartProcessor,
   onCollectProcessor,
+  onStartPlot,
+  onCollectPlot,
+  isIdleBotActive = true,
   engineRef 
 }) {
   const canvasRef = useRef(null);
@@ -47,8 +50,11 @@ export default function GameCanvas({
       onOpenChest,
       onTuneRadio,
       onStartProcessor,
-      onCollectProcessor
+      onCollectProcessor,
+      onStartPlot,
+      onCollectPlot
     );
+    engine.setIdleBot(isIdleBotActive);
     localEngineRef.current = engine;
     if (engineRef) engineRef.current = engine;
 
@@ -91,8 +97,19 @@ export default function GameCanvas({
       localEngineRef.current.onTransitionLocation = onTransitionLocation;
       localEngineRef.current.onOpenChest = onOpenChest;
       localEngineRef.current.onTuneRadio = onTuneRadio;
+      localEngineRef.current.onStartProcessor = onStartProcessor;
+      localEngineRef.current.onCollectProcessor = onCollectProcessor;
+      localEngineRef.current.onStartPlot = onStartPlot;
+      localEngineRef.current.onCollectPlot = onCollectPlot;
     }
-  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio]);
+  }, [onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio, onStartProcessor, onCollectProcessor, onStartPlot, onCollectPlot]);
+
+  // Synchronize idle bot active state
+  useEffect(() => {
+    if (localEngineRef.current) {
+      localEngineRef.current.setIdleBot(isIdleBotActive);
+    }
+  }, [isIdleBotActive]);
 
   // Synchronize chest open animation state with engine
   useEffect(() => {

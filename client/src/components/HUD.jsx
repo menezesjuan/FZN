@@ -22,7 +22,10 @@ export default function HUD({
   toolsOwned = [],
   onOpenToolsShop,
   onOpenRanch,
-  onOpenLicenses
+  onOpenLicenses,
+  isIdleBotActive = true,
+  onToggleIdleBot,
+  isIdleAuthorized = true
 }) {
   const [showDevTools, setShowDevTools] = React.useState(false);
 
@@ -72,6 +75,25 @@ export default function HUD({
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px' }}>
                 <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🪙</span>
                 <span className="font-pixel" style={{ fontSize: '12px', color: '#fff' }}>{player.money}G</span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: isIdleBotActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(100, 116, 139, 0.25)',
+                  border: `1px solid ${isIdleBotActive ? '#10b981' : '#64748b'}`,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                onClick={onToggleIdleBot}
+                title={`Piloto Automático 100% IDLE (Z): ${isIdleBotActive ? 'Ativo' : 'Pausado'}`}
+              >
+                <span style={{ fontSize: '10px' }}>🤖</span>
+                <span className="font-pixel" style={{ fontSize: '9px', color: isIdleBotActive ? '#34d399' : '#94a3b8' }}>
+                  {isIdleBotActive ? 'IDLE' : 'OFF'}
+                </span>
               </div>
             </div>
           </div>
@@ -160,6 +182,22 @@ export default function HUD({
             >
               {isMuted ? '🔇' : '🔊'}
             </button>
+            <button 
+              className="pixel-btn" 
+              onClick={onToggleIdleBot} 
+              title={isIdleAuthorized 
+                ? (isIdleBotActive ? "Piloto Automático 100% IDLE (Z): ATIVO — O personagem caminha, colhe e replanta sozinho" : "Piloto Automático 100% IDLE (Z): PAUSADO — Clique para reativar") 
+                : "Piloto Automático bloqueado (requer autorização)"}
+              style={{ 
+                background: isIdleBotActive ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #475569, #334155)', 
+                borderColor: isIdleBotActive ? '#6ee7b7' : '#64748b', 
+                color: isIdleBotActive ? '#ecfdf5' : '#cbd5e1',
+                fontWeight: 'bold',
+                boxShadow: isIdleBotActive ? '0 0 10px rgba(16, 185, 129, 0.5)' : 'none'
+              }}
+            >
+              🤖 {isIdleBotActive ? 'IDLE: ON' : 'IDLE: OFF'}
+            </button>
             <button className="pixel-btn" onClick={onOpenInventory} title="Abrir Mochila (I)">
               🎒 Mochila
             </button>
@@ -201,7 +239,7 @@ export default function HUD({
             <button 
               className="pixel-btn" 
               onClick={onOpenMarket} 
-              title="Mercado Global — Comprar e Vender (E)"
+              title="Mercado Global — Comprar e Vender (K)"
               style={{ background: '#7c3aed', borderColor: '#5b21b6', color: '#fff' }}
             >
               🏪 Mercado

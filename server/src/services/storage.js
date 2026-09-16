@@ -39,13 +39,14 @@ function getDefaultGameState() {
       energy: 100,
       maxEnergy: 100,
       position: { x: 10, y: 8 },
-      location: 'farm'
+      location: 'farm',
+      isIdleAuthorized: true
     },
     farmTiers: {
       unlockedTier: 1,
       licenses: ["license_tier_1"]
     },
-    toolsOwned: ["tool_hoe", "tool_can"],
+    toolsOwned: ["tool_hoe", "tool_can", "tool_scythe"],
     farm: {
       width: farmWidth,
       height: farmHeight,
@@ -75,10 +76,8 @@ function getDefaultGameState() {
       ]
     },
     inventory: [
-      { id: "tool_hoe", quantity: 1, quality: "normal", slot: 0 },
-      { id: "tool_can", quantity: 1, quality: "normal", slot: 1 },
-      { id: "seeds_onion", quantity: 6, quality: "normal", slot: 2 },
-      { id: "seeds_leek", quantity: 4, quality: "normal", slot: 3 }
+      { id: "seeds_onion", quantity: 6, quality: "normal", slot: 0 },
+      { id: "seeds_leek", quantity: 4, quality: "normal", slot: 1 }
     ],
     time: {
       day: 1,
@@ -230,25 +229,24 @@ class StorageService {
             { id: "tree_6", x: 21, y: 7, health: 3, maxHealth: 3, isStump: false }
           ];
         }
-        if (!state.inventory.find(i => i.id === 'tool_axe')) {
-          const usedSlots = new Set(state.inventory.map(i => i.slot));
-          let freeSlot = 0;
-          while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
-          state.inventory.push({ id: 'tool_axe', quantity: 1, quality: 'normal', slot: freeSlot });
+        if (!state.toolsOwned) {
+          state.toolsOwned = ["tool_hoe", "tool_can", "tool_scythe"];
         }
-        if (!state.inventory.find(i => i.id === 'tool_pail')) {
-          const usedSlots = new Set(state.inventory.map(i => i.slot));
-          let freeSlot = 0;
-          while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
-          state.inventory.push({ id: 'tool_pail', quantity: 1, quality: 'normal', slot: freeSlot });
+        // Migrate any tools found in inventory into toolsOwned, and purge from inventory
+        const toolItems = state.inventory.filter(i => i.id.startsWith('tool_'));
+        for (const t of toolItems) {
+          if (!state.toolsOwned.includes(t.id)) {
+            state.toolsOwned.push(t.id);
+          }
+        }
+        if (toolItems.length > 0) {
+          state.inventory = state.inventory.filter(i => !i.id.startsWith('tool_'));
+        }
+        if (!state.player.isIdleAuthorized) {
+          state.player.isIdleAuthorized = true;
         }
         if (!state.farmTiers) {
           state.farmTiers = { unlockedTier: 1, licenses: ["license_tier_1"] };
-        }
-        if (!state.toolsOwned) {
-          state.toolsOwned = state.inventory.filter(i => i.id.startsWith('tool_')).map(i => i.id);
-          if (!state.toolsOwned.includes('tool_hoe')) state.toolsOwned.push('tool_hoe');
-          if (!state.toolsOwned.includes('tool_can')) state.toolsOwned.push('tool_can');
         }
         for (const animal of state.farm.animals) {
           if (animal.harvestsRemaining === undefined) {
