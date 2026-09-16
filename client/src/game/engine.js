@@ -824,16 +824,13 @@ export class GameEngine {
     const pastureRightFence = { x: 23 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
     if (intersects(box, pastureRightFence)) return true;
 
-    // Pasture left fence: x=19, y=1 to 5 (fully enclosed west boundary)
-    const pastureLeftFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.2 * TILE_SIZE };
+    // Pasture left fence: x=19, y=1 to 4.0 (leaving corner clear)
+    const pastureLeftFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 3.9 * TILE_SIZE };
     if (intersects(box, pastureLeftFence)) return true;
 
-    // Pasture bottom fence: x=21 to 23 at y=5 (gate opening at x=20)
-    const pastureBottomFence = { x: 21 * TILE_SIZE, y: 5 * TILE_SIZE, w: 2.5 * TILE_SIZE, h: 12 };
+    // Pasture bottom fence: x=21.5 to 23 at y=5 (wide 36px gate opening from x=19.2 to 21.5)
+    const pastureBottomFence = { x: 21.5 * TILE_SIZE, y: 5 * TILE_SIZE, w: 2.0 * TILE_SIZE, h: 12 };
     if (intersects(box, pastureBottomFence)) return true;
-
-    const pastureBottomCorner = { x: 19 * TILE_SIZE, y: 5 * TILE_SIZE, w: 12, h: 12 };
-    if (intersects(box, pastureBottomCorner)) return true;
 
     // Cattle pasture fences (south-east meadow, aligned x=18 to 23, y=8 to 12)
     const cattleTopFence = { x: 18 * TILE_SIZE, y: 8 * TILE_SIZE, w: 5.5 * TILE_SIZE, h: 12 };
@@ -845,8 +842,8 @@ export class GameEngine {
     const cattleBottomFence = { x: 18 * TILE_SIZE, y: 12 * TILE_SIZE, w: 5.5 * TILE_SIZE, h: 12 };
     if (intersects(box, cattleBottomFence)) return true;
 
-    // Cattle west fence: y=10 to 12 at x=18 (gate opening at y=9)
-    const cattleLeftFence = { x: 18 * TILE_SIZE, y: 10 * TILE_SIZE, w: 12, h: 2.5 * TILE_SIZE };
+    // Cattle west fence: y=10.3 to 12 at x=18 (wide 28px gate opening from y=8.5 to 10.3)
+    const cattleLeftFence = { x: 18 * TILE_SIZE, y: 10.3 * TILE_SIZE, w: 12, h: 2.2 * TILE_SIZE };
     if (intersects(box, cattleLeftFence)) return true;
 
     return false;
@@ -1231,6 +1228,25 @@ export class GameEngine {
     const playerCenterX = this.player.x + 16;
     const playerCenterY = this.player.y + 24;
 
+    // Anti-stuck watchdog to prevent getting trapped against fence edges
+    if (!this.stuckTracker) {
+      this.stuckTracker = { lastX: this.player.x, lastY: this.player.y, timer: 0 };
+    }
+    const movedDist = Math.hypot(this.player.x - this.stuckTracker.lastX, this.player.y - this.stuckTracker.lastY);
+    if (this.player.isMoving && movedDist < 2) {
+      this.stuckTracker.timer += dt;
+      if (this.stuckTracker.timer > 1.0) {
+        // Nudge player towards central open stone avenue (y = 7.2 * 16)
+        const openAvenueY = 7.2 * TILE_SIZE;
+        this.player.y += (openAvenueY > this.player.y ? 1 : -1) * 45 * dt;
+        this.stuckTracker.timer = 0;
+      }
+    } else {
+      this.stuckTracker.lastX = this.player.x;
+      this.stuckTracker.lastY = this.player.y;
+      this.stuckTracker.timer = 0;
+    }
+
     // 1. Prioridade 1: Colheita de Talhões Prontos (Ready Crops)
     const readyPlot = this.gameState.idlePlots?.find(p =>
       p.status === 'COMPLETED' || (p.status === 'RUNNING' && p.completedAt && Date.now() >= p.completedAt)
@@ -1243,7 +1259,7 @@ export class GameEngine {
 
       this.idleBotActionLabel = `Colhendo ${readyPlot.name}...`;
 
-      if (dist < 28) {
+      if (dist < 32) {
         this.player.isMoving = false;
         this.updatePlayerIdleAnimation(dt);
 
@@ -1285,7 +1301,7 @@ export class GameEngine {
 
         this.idleBotActionLabel = `Replantando ${availablePlot.name}...`;
 
-        if (dist < 28) {
+        if (dist < 32) {
           this.player.isMoving = false;
           this.updatePlayerIdleAnimation(dt);
 
@@ -1316,7 +1332,8 @@ export class GameEngine {
 
       this.idleBotActionLabel = 'Recolhendo Ovo no Pasto...';
 
-      if (dist < 24) {
+      // Pick up egg from up to 38px (more than 2 tiles reach)
+      if (dist < 38) {
         this.player.isMoving = false;
         this.updatePlayerIdleAnimation(dt);
 
@@ -1330,10 +1347,18 @@ export class GameEngine {
         }
         return;
       } else {
-        // Enclosure navigation: gateway is at (20, 5.5)
-        if (playerCenterX < 19 * TILE_SIZE && egg.x >= 19) {
-          this.navigateTowards(20 * TILE_SIZE, 5.5 * TILE_SIZE, dt);
+        // Avoid the narrow 8px impassable gap between farmhouse and chicken coop!
+        // Route around farmhouse via the open south stone avenue (y = 7.0)
+        if (playerCenterX < 20 * TILE_SIZE) {
+          if (playerCenterY < 6.8 * TILE_SIZE) {
+            // Drop down to the open avenue first
+            this.navigateTowards(playerCenterX, 7.2 * TILE_SIZE, dt);
+          } else {
+            // Head east along the open avenue
+            this.navigateTowards(20.5 * TILE_SIZE, 7.2 * TILE_SIZE, dt);
+          }
         } else {
+          // East of farmhouse: head directly north through the wide coop gate
           this.navigateTowards(targetX, targetY, dt);
         }
         return;
@@ -1356,7 +1381,8 @@ export class GameEngine {
 
       this.idleBotActionLabel = `Ordenhando ${readyCow.name}...`;
 
-      if (dist < 28) {
+      // Milking reach is 48px (3 tiles), allowing comfortable milking from gate/fence
+      if (dist < 48) {
         this.player.isMoving = false;
         this.updatePlayerIdleAnimation(dt);
 
@@ -1372,9 +1398,9 @@ export class GameEngine {
         }
         return;
       } else {
-        // Cattle enclosure gateway is at (18, 9.5)
-        if (playerCenterX < 18 * TILE_SIZE && (cowCenterX / TILE_SIZE) >= 18) {
-          this.navigateTowards(18 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
+        // Route towards the wide west gate of the cattle enclosure
+        if (playerCenterX < 18 * TILE_SIZE) {
+          this.navigateTowards(17.5 * TILE_SIZE, 9.5 * TILE_SIZE, dt);
         } else {
           this.navigateTowards(cowCenterX, cowCenterY, dt);
         }

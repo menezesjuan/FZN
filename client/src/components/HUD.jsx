@@ -44,10 +44,21 @@ export default function HUD({
 
   return (
     <>
-      {/* Top Bar: Stats & Controls */}
-      <header className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-10" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px' }}>
-        {/* Left: Player status */}
-        <div className="pixel-panel pointer-events-auto" style={{ padding: '10px 16px', minWidth: '260px' }}>
+      {/* Top Bar: Stats & Controls — Fixed position with explicit high zIndex */}
+      <header style={{
+        position: 'fixed',
+        top: '10px',
+        left: '12px',
+        right: '12px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        pointerEvents: 'none',
+        zIndex: 50,
+        gap: '12px'
+      }}>
+        {/* Left: Player status card */}
+        <div className="pixel-panel" style={{ padding: '8px 14px', width: '280px', pointerEvents: 'auto', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span className="font-pixel" style={{ fontSize: '11px', color: '#ffec40', textShadow: '1px 1px 0 #000' }}>
               Nvl. {player.level} {player.name}
@@ -65,7 +76,7 @@ export default function HUD({
                   cursor: 'pointer'
                 }}
                 onClick={onOpenLicenses}
-                title="Ver Patamar e Licenças da Fazenda na Cooperativa"
+                title="Ver Patamar e Licenças da Fazenda na Cooperativa (L)"
               >
                 <span style={{ fontSize: '11px' }}>⭐</span>
                 <span className="font-pixel" style={{ fontSize: '10px', color: '#6ee7b7' }}>
@@ -76,25 +87,6 @@ export default function HUD({
                 <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🪙</span>
                 <span className="font-pixel" style={{ fontSize: '12px', color: '#fff' }}>{player.money}G</span>
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: isIdleBotActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(100, 116, 139, 0.25)',
-                  border: `1px solid ${isIdleBotActive ? '#10b981' : '#64748b'}`,
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                onClick={onToggleIdleBot}
-                title={`Piloto Automático 100% IDLE (Z): ${isIdleBotActive ? 'Ativo' : 'Pausado'}`}
-              >
-                <span style={{ fontSize: '10px' }}>🤖</span>
-                <span className="font-pixel" style={{ fontSize: '9px', color: isIdleBotActive ? '#34d399' : '#94a3b8' }}>
-                  {isIdleBotActive ? 'IDLE' : 'OFF'}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -104,18 +96,18 @@ export default function HUD({
               <span>XP</span>
               <span>{player.xp}/{xpRequired}</span>
             </div>
-            <div style={{ width: '100%', height: '8px', background: '#3b2210', borderRadius: '3px', overflow: 'hidden', border: '1px solid #231307' }}>
+            <div style={{ width: '100%', height: '7px', background: '#3b2210', borderRadius: '3px', overflow: 'hidden', border: '1px solid #231307' }}>
               <div style={{ width: `${xpPercent}%`, height: '100%', background: 'linear-gradient(90deg, #4ade80, #22c55e)', transition: 'width 0.3s' }} />
             </div>
           </div>
 
           {/* Energy Bar */}
-          <div>
+          <div style={{ marginBottom: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px', color: '#f3e1c6' }}>
               <span>⚡ Energia</span>
               <span>{player.energy}/{player.maxEnergy}</span>
             </div>
-            <div style={{ width: '100%', height: '8px', background: '#3b2210', borderRadius: '3px', overflow: 'hidden', border: '1px solid #231307' }}>
+            <div style={{ width: '100%', height: '7px', background: '#3b2210', borderRadius: '3px', overflow: 'hidden', border: '1px solid #231307' }}>
               <div style={{ 
                 width: `${energyPercent}%`, 
                 height: '100%', 
@@ -124,131 +116,171 @@ export default function HUD({
               }} />
             </div>
           </div>
+
+          {/* 100% IDLE Pilot Switch in Player Card */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              background: isIdleBotActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(71, 85, 105, 0.3)',
+              border: `1px solid ${isIdleBotActive ? '#10b981' : '#64748b'}`,
+              cursor: 'pointer',
+              boxShadow: isIdleBotActive ? '0 0 8px rgba(16, 185, 129, 0.3)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={onToggleIdleBot}
+            title={isIdleAuthorized ? "Alternar Piloto Automático 100% IDLE (Atalho rápido: Tecla Z)" : "Requer autorização"}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12px' }}>🤖</span>
+              <span className="font-pixel" style={{ fontSize: '9px', color: isIdleBotActive ? '#34d399' : '#cbd5e1' }}>
+                PILOTO 100% IDLE (Z)
+              </span>
+            </div>
+            <span className="font-pixel" style={{
+              fontSize: '8px',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              background: isIdleBotActive ? '#059669' : '#475569',
+              color: '#fff',
+              fontWeight: 'bold'
+            }}>
+              {isIdleBotActive ? 'ATIVO' : 'PAUSADO'}
+            </span>
+          </div>
         </div>
 
-        {/* Right: Date, Weather & Menu Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          <div className="pixel-panel pointer-events-auto" style={{ padding: '8px 14px', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Right: Date, Weather & Responsive Menu Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', pointerEvents: 'none', maxWidth: 'calc(100vw - 320px)' }}>
+          {/* Weather & Time Box */}
+          <div className="pixel-panel" style={{ padding: '6px 12px', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'auto' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '32px',
-              height: '32px',
+              width: '30px',
+              height: '30px',
               borderRadius: '6px',
               background: weather === 'stormy' ? 'rgba(79, 70, 229, 0.3)' : (weather === 'rainy' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(234, 179, 8, 0.2)'),
               border: `1px solid ${weather === 'stormy' ? '#818cf8' : (weather === 'rainy' ? '#38bdf8' : '#facc15')}`,
-              fontSize: '18px',
+              fontSize: '16px',
               boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'
-            }} title={weather === 'stormy' ? 'Tempestade de Primavera ⛈️ (Solo regado pela chuva)' : (weather === 'rainy' ? 'Chuva Fértil 🌧️ (Solo regado pela chuva)' : 'Sol Radiante ☀️ (Céu límpido)')}>
+            }} title={weather === 'stormy' ? 'Tempestade de Primavera ⛈️' : (weather === 'rainy' ? 'Chuva Fértil 🌧️' : 'Sol Radiante ☀️')}>
               {weather === 'stormy' ? '⛈️' : (weather === 'rainy' ? '🌧️' : '☀️')}
             </div>
             <div>
               <div className="font-pixel" style={{ fontSize: '11px', color: '#ffea75', marginBottom: '2px' }}>
                 {{Primavera: '🌸', Verão: '☀️', Outono: '🍂', Inverno: '❄️'}[time?.season] || '🌸'} {time?.season || 'Primavera'} — Dia {time?.day || 1}
               </div>
-              <div style={{ fontSize: '11px', color: '#e2e8f0', display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+              <div style={{ fontSize: '10px', color: '#e2e8f0', display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
                 <span>Ano {time?.year || 1}</span>
                 <span style={{ color: weather === 'stormy' ? '#a5b4fc' : (weather === 'rainy' ? '#7dd3fc' : '#fef08a'), fontWeight: 'bold' }}>
                   {weather === 'stormy' ? 'Tempestade' : (weather === 'rainy' ? 'Chuvoso' : 'Ensolarado')}
                 </span>
               </div>
             </div>
+            <button 
+              className="pixel-btn" 
+              onClick={onToggleMute} 
+              title={isMuted ? "Ativar Áudio (Mudo)" : "Desativar Áudio"}
+              style={{ padding: '4px 8px', fontSize: '13px', marginLeft: '4px' }}
+            >
+              {isMuted ? '🔇' : '🔊'}
+            </button>
           </div>
 
-          <div className="pointer-events-auto" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Action & Menu Buttons Grid — Flex Wrap cleanly aligned */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
             {totalReadyHarvests > 0 && (
               <button 
                 className="pixel-btn" 
                 onClick={onHarvestAll}
-                title="Colher toda a produção pronta da fazenda com 1 clique"
+                title="Colher toda a produção pronta da fazenda com 1 clique (Atalho: C)"
                 style={{ 
                   background: 'linear-gradient(135deg, #15803d, #16a34a)', 
                   borderColor: '#fde047', 
                   color: '#fef08a',
                   fontWeight: 'bold',
-                  boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)',
-                  fontSize: '12px'
+                  boxShadow: '0 0 10px rgba(34, 197, 94, 0.6)',
+                  fontSize: '11px',
+                  padding: '6px 12px'
                 }}
               >
                 🌾 Colher Tudo ({totalReadyHarvests})
               </button>
             )}
+
             <button 
               className="pixel-btn" 
-              onClick={onToggleMute} 
-              title={isMuted ? "Ativar Áudio (Mudo)" : "Desativar Áudio"}
-              style={{ padding: '8px 10px', minWidth: '38px', fontSize: '15px' }}
+              onClick={onOpenInventory} 
+              title="Abrir Mochila do Fazendeiro (Atalho: I)"
+              style={{ padding: '6px 11px', fontSize: '11px' }}
             >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-            <button 
-              className="pixel-btn" 
-              onClick={onToggleIdleBot} 
-              title={isIdleAuthorized 
-                ? (isIdleBotActive ? "Piloto Automático 100% IDLE (Z): ATIVO — O personagem caminha, colhe e replanta sozinho" : "Piloto Automático 100% IDLE (Z): PAUSADO — Clique para reativar") 
-                : "Piloto Automático bloqueado (requer autorização)"}
-              style={{ 
-                background: isIdleBotActive ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #475569, #334155)', 
-                borderColor: isIdleBotActive ? '#6ee7b7' : '#64748b', 
-                color: isIdleBotActive ? '#ecfdf5' : '#cbd5e1',
-                fontWeight: 'bold',
-                boxShadow: isIdleBotActive ? '0 0 10px rgba(16, 185, 129, 0.5)' : 'none'
-              }}
-            >
-              🤖 {isIdleBotActive ? 'IDLE: ON' : 'IDLE: OFF'}
-            </button>
-            <button className="pixel-btn" onClick={onOpenInventory} title="Abrir Mochila (I)">
               🎒 Mochila
             </button>
+
             <button
               className="pixel-btn"
               onClick={onOpenToolsShop}
-              title="Oficina do Ferreiro — Comprar Ferramentas"
-              style={{ background: '#b45309', borderColor: '#78350f', color: '#fef3c7' }}
+              title="Oficina do Ferreiro — Comprar Ferramentas Obrigatórias (Atalho: T)"
+              style={{ background: '#b45309', borderColor: '#78350f', color: '#fef3c7', padding: '6px 11px', fontSize: '11px' }}
             >
               🔨 Ferramentas
             </button>
+
             <button
               className="pixel-btn"
               onClick={onOpenRanch}
-              title="Rancho Marlene — Comprar Animais & Rebanho"
-              style={{ background: '#047857', borderColor: '#064e3b', color: '#d1fae5' }}
+              title="Rancho Marlene — Comprar Animais & Gestão de Rebanho (Atalho: R)"
+              style={{ background: '#047857', borderColor: '#064e3b', color: '#d1fae5', padding: '6px 11px', fontSize: '11px' }}
             >
               🐄 Rancho
             </button>
+
             <button
               className="pixel-btn"
               onClick={onOpenLicenses}
-              title="Cooperativa Agrícola — Licenças de Expansão"
-              style={{ background: '#4338ca', borderColor: '#312e81', color: '#e0e7ff' }}
+              title="Cooperativa Agrícola — Licenças de Expansão de Patamar (Atalho: L)"
+              style={{ background: '#4338ca', borderColor: '#312e81', color: '#e0e7ff', padding: '6px 11px', fontSize: '11px' }}
             >
               🏛️ Licenças
             </button>
-            <button className="pixel-btn" onClick={onOpenShop} title="Loja do Vilarejo (B)">
+
+            <button 
+              className="pixel-btn" 
+              onClick={onOpenShop} 
+              title="Loja de Sementes e Mantimentos (Atalho: B)"
+              style={{ padding: '6px 11px', fontSize: '11px' }}
+            >
               🏪 Loja
             </button>
+
             <button 
               className="pixel-btn" 
               onClick={onOpenManagement} 
-              title="Gestão da Fazenda & Produção Idle (M)"
-              style={{ background: '#2563eb', borderColor: '#1d4ed8', color: '#fff' }}
+              title="Gestão da Fazenda & Produção dos Talhões IDLE (Atalho: M)"
+              style={{ background: '#2563eb', borderColor: '#1d4ed8', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
             >
               🚜 Gestão
             </button>
+
             <button 
               className="pixel-btn" 
               onClick={onOpenMarket} 
-              title="Mercado Global — Comprar e Vender (K)"
-              style={{ background: '#7c3aed', borderColor: '#5b21b6', color: '#fff' }}
+              title="Mercado Global — Comércio entre Fazendeiros (Atalho: K)"
+              style={{ background: '#7c3aed', borderColor: '#5b21b6', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
             >
               🏪 Mercado
             </button>
+
             <button 
               className="pixel-btn" 
               onClick={() => setShowDevTools(p => !p)} 
-              title="Painel de Ferramentas Rápidas"
-              style={{ padding: '8px 10px', fontSize: '13px', background: '#64748b', borderColor: '#334155', color: '#fff' }}
+              title="Painel de Ferramentas Rápidas de Desenvolvedor"
+              style={{ padding: '6px 9px', fontSize: '12px', background: '#64748b', borderColor: '#334155', color: '#fff' }}
             >
               🛠️
             </button>

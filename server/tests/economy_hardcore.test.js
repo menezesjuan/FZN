@@ -139,6 +139,8 @@ test('100% IDLE Automation: autoLoop continuously harvests and replants with fee
   assert.ok(state.player.money < 300);
   const onionsInInv = state.inventory.find(i => i.id === 'crop_onion');
   assert.ok(onionsInInv && onionsInInv.quantity >= 16);
+  plot.autoLoop = false;
+  plot.status = 'AVAILABLE';
 });
 
 test('100% IDLE Automation: halts with INSUFFICIENT_FUNDS when cash is empty', (t) => {
@@ -160,6 +162,9 @@ test('100% IDLE Automation: halts with INSUFFICIENT_FUNDS when cash is empty', (
 
   assert.strictEqual(plot.status, 'INSUFFICIENT_FUNDS');
   assert.strictEqual(plot.autoError, 'OUT_OF_MONEY');
+  plot.autoLoop = false;
+  plot.status = 'AVAILABLE';
+  plot.autoError = null;
 });
 
 test('100% IDLE & Inventory: player has isIdleAuthorized and clean non-redundant inventory', (t) => {
@@ -179,4 +184,9 @@ test('100% IDLE & Inventory: player has isIdleAuthorized and clean non-redundant
   const res = farmEngine.chopTree(initialTree.id, initialTree.x, initialTree.y);
   assert.strictEqual(res.success, true);
   assert.strictEqual(initialTree.health, 2);
+
+  // Clean up test states
+  state.idlePlots.forEach(p => { p.autoLoop = false; p.status = 'AVAILABLE'; p.autoError = null; });
+  state.player.money = 150;
+  farmEngine.save();
 });

@@ -14,79 +14,58 @@ export default function QuestTracker({ gameState }) {
 
   const tilledCount = Object.values(tiles).filter(t => t.state === 'tilled').length;
   const plantedCount = Object.values(tiles).filter(t => t.crop !== null).length;
-  const wateredCount = Object.values(tiles).filter(t => t.crop && t.isWatered).length;
+  const idlePlotsCount = gameState.idlePlots?.filter(p => p.status === 'RUNNING' || p.status === 'COMPLETED').length || 0;
   const harvestedCount = stats.cropsHarvested || 0;
   const moneyEarned = stats.totalMoneyEarned || 0;
 
-  if (tilledCount < 4) {
+  if (plantedCount < 2 && idlePlotsCount === 0) {
     activeQuest = {
-      title: "1. Preparar o Solo",
-      description: "Selecione a Enxada de Trabalho (1) e are pelo menos 4 lotes de terra na fazenda.",
-      progress: `${tilledCount}/4 lotes arados`,
-      percent: Math.min(100, Math.round((tilledCount / 4) * 100))
+      title: "1. O Primeiro Cultivo",
+      description: "Inicie o plantio em um Talhão Agrícola (painel de Gestão M) ou semeie um lote arado.",
+      progress: `${plantedCount + idlePlotsCount}/2 plantios`,
+      percent: Math.min(100, Math.round(((plantedCount + idlePlotsCount) / 2) * 100))
     };
-  } else if (plantedCount < 3) {
+  } else if (harvestedCount < 1) {
     activeQuest = {
-      title: "2. Semeadura",
-      description: "Selecione sementes na barra inferior e plante-as nos lotes arados.",
-      progress: `${plantedCount}/3 sementes plantadas`,
-      percent: Math.min(100, Math.round((plantedCount / 3) * 100))
-    };
-  } else if (wateredCount < 3) {
-    activeQuest = {
-      title: "3. Hidratação das Culturas",
-      description: "Use o Regador de Cobre (2) para regar todas as sementes que você plantou.",
-      progress: `${wateredCount}/3 lotes regados`,
-      percent: Math.min(100, Math.round((wateredCount / 3) * 100))
-    };
-  } else if (day === 1 && harvestedCount === 0) {
-    activeQuest = {
-      title: "4. Aconchego do Lar",
-      description: "Entre na casa da fazenda (tecla E na porta), explore seu quarto rústico e descanse na cama quentinha para avançar o dia.",
-      progress: `Dia atual: 1`,
-      percent: 50
-    };
-  } else if (harvestedCount < 2) {
-    activeQuest = {
-      title: "5. A Primeira Colheita",
-      description: "Aguarde os vegetais amadurecerem e colha-os com o clique do mouse.",
-      progress: `${harvestedCount}/2 colheitas realizadas`,
-      percent: Math.min(100, Math.round((harvestedCount / 2) * 100))
+      title: "2. A Primeira Colheita",
+      description: "Aguarde o amadurecimento das culturas e colha sua safra (ou use o botão Colher Tudo).",
+      progress: `${harvestedCount}/1 colheita realizada`,
+      percent: harvestedCount ? 100 : 0
     };
   } else if ((stats.eggsCollected || 0) < 1) {
     activeQuest = {
-      title: "6. Cuidados no Galinheiro",
-      description: "Visite o cercado das galinhas ao lado da casa, faça carinho nelas e recolha um ovo fresco do chão.",
+      title: "3. Cuidados no Galinheiro",
+      description: "Visite o cercado das galinhas ao lado da casa ou deixe o Piloto IDLE apanhar ovos frescos.",
       progress: `${stats.eggsCollected || 0}/1 ovo recolhido`,
       percent: stats.eggsCollected ? 100 : 0
     };
   } else if (moneyEarned < 60) {
     activeQuest = {
-      title: "7. Comércio Rural",
-      description: "Abra o Empório (B) e venda seus produtos frescos e ovos para lucrar moedas de ouro.",
+      title: "4. Comércio Rural",
+      description: "Abra o Mercado Global (K) ou a Loja (B) e venda seus produtos para acumular moedas de ouro.",
       progress: `${moneyEarned}/60G arrecadados`,
       percent: Math.min(100, Math.round((moneyEarned / 60) * 100))
     };
-  } else if ((stats.woodGathered || 0) < 3) {
-    activeQuest = {
-      title: "8. Silvicultura e Coleta",
-      description: "Equipe o Machadinho de Ferro (5) e corte uma árvore na fazenda para coletar toras de madeira.",
-      progress: `${stats.woodGathered || 0}/3 madeiras coletadas`,
-      percent: Math.min(100, Math.round(((stats.woodGathered || 0) / 3) * 100))
-    };
   } else if ((stats.milkProduced || 0) < 1) {
     activeQuest = {
-      title: "9. Manejo Bovino e Ordenha",
-      description: "Vá até o pasto sul, selecione o Balde de Ordenha (6) e ordenhe a vaca Mimosa para obter leite fresco.",
+      title: "5. Pecuária Leiteira & Ordenha",
+      description: "Adquira o Balde no Ferreiro (T) e ordenhe a vaca Mimosa no pasto sul para obter leite fresco.",
       progress: `${stats.milkProduced || 0}/1 leite ordenhado`,
       percent: stats.milkProduced ? 100 : 0
     };
+  } else if ((stats.woodGathered || 0) < 3) {
+    activeQuest = {
+      title: "6. Silvicultura e Coleta",
+      description: "Adquira o Machado no Ferreiro (T) e corte árvores na fazenda para coletar toras de madeira.",
+      progress: `${stats.woodGathered || 0}/3 madeiras coletadas`,
+      percent: Math.min(100, Math.round(((stats.woodGathered || 0) / 3) * 100))
+    };
   } else {
     activeQuest = {
-      title: "10. Expansão da Propriedade",
-      description: "Venda suas mercadorias rurais, atinja o Nível 2 de Fazendeiro e acumule 300G.",
-      progress: `${gameState.player?.money || 0}/300G`,
-      percent: Math.min(100, Math.round(((gameState.player?.money || 0) / 300) * 100))
+      title: "7. Expansão da Propriedade",
+      description: "Acumule recursos e adquira a Licença Tier 2 na Cooperativa Agrícola (L).",
+      progress: `${gameState.player?.money || 0}/1200G`,
+      percent: Math.min(100, Math.round(((gameState.player?.money || 0) / 1200) * 100))
     };
   }
 
@@ -94,12 +73,12 @@ export default function QuestTracker({ gameState }) {
     <div
       className="pixel-panel pointer-events-auto"
       style={{
-        position: 'absolute',
-        top: '160px',
-        left: '16px',
-        width: collapsed ? '42px' : '260px',
+        position: 'fixed',
+        top: '155px',
+        left: '12px',
+        width: collapsed ? '42px' : '280px',
         transition: 'width 0.2s ease',
-        zIndex: 10,
+        zIndex: 40,
         padding: '8px 12px'
       }}
     >
