@@ -111,7 +111,18 @@ class FarmEngine {
     return { success: true, tile, player: this.state.player };
   }
 
+  hasTool(toolId) {
+    if (this.state.toolsOwned && this.state.toolsOwned.includes(toolId)) return true;
+    if (this.state.inventory && this.state.inventory.some(i => i.id === toolId)) return true;
+    if (this.state.farm?.chest && this.state.farm.chest.some(i => i.id === toolId)) return true;
+    return false;
+  }
+
   plantCrop(x, y, seedItemId) {
+    if (!this.hasTool('tool_hoe')) {
+      throw new Error("Você precisa de uma Enxada Agrícola para semear a terra! Adquira na Oficina do Ferreiro.");
+    }
+
     const key = `${x},${y}`;
     const tile = this.state.farm.tiles[key];
     if (!tile) {
@@ -146,6 +157,13 @@ class FarmEngine {
       throw new Error(`${cropDef.name} só cresce na ${cropDef.seasons.join(' ou ')}! Agora é ${currentSeason}.`);
     }
 
+    // Tier license validation
+    const cropTier = cropDef.tier || 1;
+    const unlockedTier = this.state.farmTiers?.unlockedTier || 1;
+    if (cropTier > unlockedTier) {
+      throw new Error(`O cultivo de ${cropDef.name} exige Licença Agrícola Tier ${cropTier}! Você possui Tier ${unlockedTier}. Adquira a licença na Cooperativa.`);
+    }
+
     // Deduct seed from inventory
     this.state.inventory[invIndex].quantity -= 1;
     if (this.state.inventory[invIndex].quantity <= 0) {
@@ -171,6 +189,10 @@ class FarmEngine {
   }
 
   harvestCrop(x, y) {
+    if (!this.hasTool('tool_scythe')) {
+      throw new Error("Você precisa de uma Foice de Colheita para colher a lavoura! Adquira na Oficina do Ferreiro.");
+    }
+
     this.updateGrowth();
     const key = `${x},${y}`;
     const tile = this.state.farm.tiles[key];
@@ -323,6 +345,13 @@ class FarmEngine {
     // Full restore of energy
     this.state.player.energy = this.state.player.maxEnergy;
 
+    // Daily Farm Property Tax
+    const activePlotsCount = this.state.idlePlots?.filter(p => p.autoLoop || p.status === 'RUNNING').length || 0;
+    const propertyTax = 20 + (activePlotsCount * 5);
+    const taxDeducted = Math.min(this.state.player.money || 0, propertyTax);
+    this.state.player.money -= taxDeducted;
+    if (this.state.player.money < 0) this.state.player.money = 0;
+
     // Grow crops that were watered yesterday
     for (const key in this.state.farm.tiles) {
       const tile = this.state.farm.tiles[key];
@@ -466,6 +495,10 @@ class FarmEngine {
 
   // Collect fresh egg from chicken pasture
   collectEgg(eggId, tileX, tileY) {
+    if (!this.hasTool('tool_egg_basket')) {
+      throw new Error("Você precisa de um Cesto de Ovos para recolher os ovos sem quebrar a casca! Adquira na Oficina do Ferreiro.");
+    }
+
     if (!this.state.farm.eggs || this.state.farm.eggs.length === 0) {
       throw new Error("Nenhum ovo encontrado para coletar.");
     }
@@ -484,6 +517,15 @@ class FarmEngine {
 
     const egg = this.state.farm.eggs[eggIndex];
     this.state.farm.eggs.splice(eggIndex, 1);
+
+    // Consume 1 productive harvest from a living laying hen
+    const liveChicken = this.state.farm.animals?.find(a => (a.type === 'adult_chicken' || a.type === 'red_chicken') && a.isAlive !== false);
+    if (liveChicken) {
+      liveChicken.harvestsRemaining = (liveChicken.harvestsRemaining !== undefined ? liveChicken.harvestsRemaining : 20) - 1;
+      if (liveChicken.harvestsRemaining <= 0) {
+        liveChicken.isAlive = false;
+      }
+    }
 
     // Add to player inventory
     this.addItemToInventory('produce_egg', 1, egg.quality || 'normal');
@@ -593,9 +635,8 @@ class FarmEngine {
       throw new Error("Você está exausto demais para ordenhar! Descanse na casa da fazenda.");
     }
 
-    const hasPail = this.state.inventory.some(i => i.id === 'tool_pail');
-    if (!hasPail) {
-      throw new Error("Você precisa de um Balde de Ordenha para tirar leite da vaca!");
+    if (!this.hasTool('tool_pail')) {
+      throw new Error("Você precisa de um Balde de Ordenha para tirar leite da vaca! Adquira na Oficina do Ferreiro.");
     }
 
     if (!this.state.farm.animals) {
@@ -614,6 +655,10 @@ class FarmEngine {
       throw new Error("Nenhum animal bovino encontrado nesta posição.");
     }
 
+    if (cow.isAlive === false) {
+      throw new Error(`${cow.name || 'A vaca'} já encerrou seu ciclo de vida produtivo (velhice).`);
+    }
+
     if (cow.type === 'male_cow') {
       throw new Error(`${cow.name || 'O animal'} é um touro! Apenas vacas leiteiras produzem leite.`);
     }
@@ -629,6 +674,12 @@ class FarmEngine {
     // Mark as milked today
     cow.lastMilkedDay = currentDay;
     cow.affection = (cow.affection || 10) + 5;
+
+    // Consume 1 productive harvest
+    cow.harvestsRemaining = (cow.harvestsRemaining !== undefined ? cow.harvestsRemaining : 30) - 1;
+    if (cow.harvestsRemaining <= 0) {
+      cow.isAlive = false;
+    }
 
     // Quality chance based on level and affection
     const affectionBonus = ((cow.affection || 10) / 100) * 0.2;
@@ -915,27 +966,151 @@ class FarmEngine {
     const now = Date.now();
     let changed = false;
 
+    // 1. Idle Plots: Automated 100% IDLE Loop (Harvest + Replant with Financial Gates)
     if (this.state.idlePlots) {
       for (const plot of this.state.idlePlots) {
         if (plot.status === 'RUNNING' && plot.completedAt && now >= plot.completedAt) {
           plot.status = 'COMPLETED';
           changed = true;
         }
-      }
-    }
 
-    if (this.state.facilities) {
-      for (const [facKey, fac] of Object.entries(this.state.facilities)) {
-        const elapsedMs = now - (fac.lastCollectedAt || now);
-        const cycles = Math.floor(elapsedMs / (fac.cycleDurationMs || 120000));
-        const newYield = Math.min(fac.maxYield || 12, cycles * (fac.outputPerCycle || 1));
-        if (fac.currentYield !== newYield) {
-          fac.currentYield = newYield;
-          changed = true;
+        // Continuous Auto-Loop Processing
+        if (plot.autoLoop && plot.status === 'COMPLETED') {
+          // Check for harvest tool (scythe)
+          if (!this.hasTool('tool_scythe')) {
+            plot.autoError = 'MISSING_SCYTHE';
+            continue;
+          }
+
+          // Auto-harvest to warehouse / inventory
+          const cropDef = cropsConfig[plot.cropId];
+          const produceId = cropDef ? cropDef.produceId : `crop_${plot.cropId}`;
+          const qty = plot.quantity || 10;
+          const quality = plot.quality || 'normal';
+
+          this.addItemToInventory(produceId, qty, quality);
+          this.state.stats.cropsHarvested = (this.state.stats.cropsHarvested || 0) + qty;
+          const xpGained = (cropDef?.xp || 10) * Math.max(1, Math.floor(qty / 2));
+          this.addPlayerXP(xpGained);
+
+          // Now auto-replant next batch
+          const targetCropId = plot.assignedCropId || plot.cropId || 'onion';
+          const nextCropDef = cropsConfig[targetCropId];
+          const cropTier = nextCropDef?.tier || 1;
+          const unlockedTier = this.state.farmTiers?.unlockedTier || 1;
+          const currentSeason = this.state.time?.season || 'Primavera';
+
+          // Check hoe tool & tier license & seasonal compatibility
+          if (!this.hasTool('tool_hoe')) {
+            plot.status = 'AVAILABLE';
+            plot.autoError = 'MISSING_HOE';
+            changed = true;
+            continue;
+          }
+          if (cropTier > unlockedTier) {
+            plot.status = 'AVAILABLE';
+            plot.autoError = 'TIER_LOCKED';
+            changed = true;
+            continue;
+          }
+          if (currentSeason === 'Inverno' || (nextCropDef.seasons && !nextCropDef.seasons.includes(currentSeason))) {
+            plot.status = 'AVAILABLE';
+            plot.autoError = 'SEASON_MISMATCH';
+            changed = true;
+            continue;
+          }
+
+          // Financial cost check (Seeds + Operating Upkeep)
+          const cost = (nextCropDef.seedBatchCost || 20) + (nextCropDef.operatingCost || 10);
+          if ((this.state.player.money || 0) >= cost) {
+            this.state.player.money -= cost;
+            const dur = (nextCropDef.idleDurationSeconds || 60) * 1000;
+            plot.status = 'RUNNING';
+            plot.cropId = targetCropId;
+            plot.cropName = nextCropDef.name;
+            plot.startedAt = now;
+            plot.durationMs = dur;
+            plot.completedAt = now + dur;
+            plot.quantity = nextCropDef.batchYield || 10;
+            plot.quality = 'normal';
+            plot.autoError = null;
+            changed = true;
+          } else {
+            // Out of money! Safety cutoff to alert farmer
+            plot.status = 'INSUFFICIENT_FUNDS';
+            plot.autoError = 'OUT_OF_MONEY';
+            changed = true;
+          }
         }
       }
     }
 
+    // 2. Automated Facilities (Coop & Barn with living livestock count & feed costs)
+    if (this.state.facilities) {
+      const liveHens = this.state.farm.animals?.filter(a =>
+        (a.type === 'adult_chicken' || a.type === 'red_chicken') && a.isAlive !== false
+      ) || [];
+
+      const liveCows = this.state.farm.animals?.filter(a =>
+        a.type === 'female_cow' && a.isAlive !== false
+      ) || [];
+
+      for (const [facKey, fac] of Object.entries(this.state.facilities)) {
+        const isCoop = facKey === 'coop';
+        const liveCount = isCoop ? liveHens.length : liveCows.length;
+
+        if (liveCount === 0) {
+          fac.status = 'NO_LIVESTOCK';
+          continue;
+        }
+
+        const elapsedMs = now - (fac.lastCollectedAt || now);
+        const cycleDuration = fac.cycleDurationMs || (isCoop ? 120000 : 180000);
+        const cycles = Math.floor(elapsedMs / cycleDuration);
+
+        if (cycles > 0) {
+          const feedCost = cycles * (fac.feedCostPerCycle || (isCoop ? 15 : 35));
+
+          if ((this.state.player.money || 0) >= feedCost) {
+            this.state.player.money -= feedCost;
+            const yieldGained = Math.min(fac.maxYield || 12, cycles * Math.min(liveCount, fac.outputPerCycle || 1));
+
+            // Consume productive harvests from active animals
+            const activePool = isCoop ? liveHens : liveCows;
+            for (let i = 0; i < cycles; i++) {
+              for (const animal of activePool) {
+                if (animal.harvestsRemaining > 0) {
+                  animal.harvestsRemaining -= 1;
+                  if (animal.harvestsRemaining <= 0) {
+                    animal.isAlive = false;
+                  }
+                }
+              }
+            }
+
+            // Auto-drain directly to warehouse if tool owned
+            const requiredTool = isCoop ? 'tool_egg_basket' : 'tool_pail';
+            if (fac.autoDrain && this.hasTool(requiredTool)) {
+              this.addItemToInventory(fac.produceId, yieldGained, 'normal');
+              if (isCoop) this.state.stats.eggsCollected = (this.state.stats.eggsCollected || 0) + yieldGained;
+              else this.state.stats.milkProduced = (this.state.stats.milkProduced || 0) + yieldGained;
+              fac.currentYield = 0;
+            } else {
+              fac.currentYield = Math.min(fac.maxYield || 12, (fac.currentYield || 0) + yieldGained);
+            }
+
+            fac.status = 'RUNNING';
+            fac.lastCollectedAt = now;
+            changed = true;
+          } else {
+            fac.status = 'OUT_OF_FEED';
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // 3. Processors (Cheese press, Mayo machine, Preserves jar)
     if (this.state.processors) {
       for (const [procKey, proc] of Object.entries(this.state.processors)) {
         if (proc.status === 'PROCESSING' && proc.completedAt && now >= proc.completedAt) {
@@ -949,6 +1124,167 @@ class FarmEngine {
     if (changed) {
       this.save();
     }
+  }
+
+  // Buy essential agricultural or livestock tool from the blacksmith
+  buyTool(toolId) {
+    const itemDef = itemsConfig.items[toolId];
+    if (!itemDef || itemDef.category !== 'tool' || !itemDef.buyPrice) {
+      throw new Error("Ferramenta inválida para compra.");
+    }
+    if (this.hasTool(toolId)) {
+      throw new Error(`Você já possui a ferramenta ${itemDef.name}!`);
+    }
+    const cost = itemDef.buyPrice;
+    if ((this.state.player.money || 0) < cost) {
+      throw new Error(`Ouro insuficiente para comprar ${itemDef.name} (${cost}G necessários, você tem ${this.state.player.money || 0}G).`);
+    }
+
+    this.state.player.money -= cost;
+    if (!this.state.toolsOwned) this.state.toolsOwned = [];
+    this.state.toolsOwned.push(toolId);
+    this.addItemToInventory(toolId, 1, 'normal');
+    this.save();
+
+    return {
+      success: true,
+      message: `Comprou ${itemDef.name} por ${cost}G!`,
+      toolsOwned: this.state.toolsOwned,
+      inventory: this.state.inventory,
+      player: this.state.player
+    };
+  }
+
+  // Buy livestock animal from the ranch with finite productive lifespan
+  buyAnimal(animalItemId, customName = null) {
+    const itemDef = itemsConfig.items[animalItemId];
+    if (!itemDef || itemDef.category !== 'livestock') {
+      throw new Error("Animal inválido para aquisição.");
+    }
+    const cost = itemDef.buyPrice || 350;
+    if ((this.state.player.money || 0) < cost) {
+      throw new Error(`Ouro insuficiente para comprar ${itemDef.name} (${cost}G necessários, você tem ${this.state.player.money || 0}G).`);
+    }
+
+    if (!this.state.farm.animals) this.state.farm.animals = [];
+
+    const isCow = animalItemId === 'animal_cow';
+    const unlockedTier = this.state.farmTiers?.unlockedTier || 1;
+
+    if (isCow && unlockedTier < 3) {
+      throw new Error("Vacas leiteiras exigem Licença Agrícola Tier 3 ou superior!");
+    }
+    if (!isCow && unlockedTier < 2) {
+      throw new Error("Galinhas poedeiras exigem Licença Agrícola Tier 2 ou superior!");
+    }
+
+    this.state.player.money -= cost;
+
+    const animalId = `${isCow ? 'cow' : 'chicken'}_${Date.now()}`;
+    const defaultName = isCow ? `Vaca #${this.state.farm.animals.length + 1}` : `Galinha #${this.state.farm.animals.length + 1}`;
+    const name = customName || defaultName;
+
+    const newAnimal = {
+      id: animalId,
+      type: isCow ? 'female_cow' : 'adult_chicken',
+      name,
+      x: isCow ? 19 : 20,
+      y: isCow ? 9 : 3,
+      harvestsRemaining: itemDef.maxHarvests || (isCow ? 30 : 20),
+      maxHarvests: itemDef.maxHarvests || (isCow ? 30 : 20),
+      isAlive: true,
+      affection: 15
+    };
+
+    this.state.farm.animals.push(newAnimal);
+    this.save();
+
+    return {
+      success: true,
+      message: `Comprou ${newAnimal.name} por ${cost}G! Vida útil: ${newAnimal.harvestsRemaining} coletas.`,
+      animal: newAnimal,
+      animals: this.state.farm.animals,
+      player: this.state.player
+    };
+  }
+
+  // Upgrade farm tier license at the Cooperative
+  buyTierLicense(targetTier) {
+    const currentTier = this.state.farmTiers?.unlockedTier || 1;
+    if (targetTier !== currentTier + 1) {
+      throw new Error(`Você só pode avançar para o Tier ${currentTier + 1}! Seu patamar atual é Tier ${currentTier}.`);
+    }
+
+    const licenseId = `license_tier_${targetTier}`;
+    const licenseDef = itemsConfig.items[licenseId];
+    if (!licenseDef) {
+      throw new Error("Licença não encontrada.");
+    }
+
+    const cost = licenseDef.buyPrice || 1200;
+    if ((this.state.player.money || 0) < cost) {
+      throw new Error(`Ouro insuficiente para Licença Tier ${targetTier} (${cost}G necessários, você tem ${this.state.player.money || 0}G).`);
+    }
+
+    // Material requirements check
+    if (targetTier === 2) {
+      const woodItem = this.state.inventory.find(i => i.id === 'material_wood');
+      const woodQty = woodItem ? woodItem.quantity : 0;
+      if (woodQty < 30) {
+        throw new Error(`A Licença Tier 2 exige 30 Madeiras Rústicas no inventário para as obras da Cooperativa (você tem ${woodQty}).`);
+      }
+      woodItem.quantity -= 30;
+      if (woodItem.quantity <= 0) {
+        const idx = this.state.inventory.indexOf(woodItem);
+        this.state.inventory.splice(idx, 1);
+      }
+    } else if (targetTier === 3) {
+      if ((this.state.warehouse?.level || 1) < 2) {
+        throw new Error("A Licença Tier 3 exige aprimorar o Armazém para o Nível 2 antes da certificação!");
+      }
+    } else if (targetTier === 4) {
+      if ((this.state.warehouse?.level || 1) < 3) {
+        throw new Error("A Licença Tier 4 exige aprimorar o Armazém para o Nível 3 (Complexo Logístico Rural)!");
+      }
+    }
+
+    this.state.player.money -= cost;
+    if (!this.state.farmTiers) this.state.farmTiers = { unlockedTier: 1, licenses: ['license_tier_1'] };
+    this.state.farmTiers.unlockedTier = targetTier;
+    if (!this.state.farmTiers.licenses.includes(licenseId)) {
+      this.state.farmTiers.licenses.push(licenseId);
+    }
+
+    this.save();
+    return {
+      success: true,
+      message: `Parabéns! Você adquiriu a ${licenseDef.name}!`,
+      farmTiers: this.state.farmTiers,
+      player: this.state.player,
+      inventory: this.state.inventory
+    };
+  }
+
+  // Toggle continuous auto-loop on an idle plot
+  togglePlotAutoLoop(plotId, enable = true, cropId = null) {
+    if (!this.state.idlePlots) throw new Error("Talhões não inicializados.");
+    const plot = this.state.idlePlots.find(p => p.id === Number(plotId));
+    if (!plot) throw new Error(`Talhão #${plotId} não encontrado.`);
+
+    plot.autoLoop = !!enable;
+    if (cropId) plot.assignedCropId = cropId;
+    if (plot.status === 'INSUFFICIENT_FUNDS' && enable) {
+      plot.status = 'AVAILABLE';
+      plot.autoError = null;
+    }
+
+    this.save();
+    return {
+      success: true,
+      message: `Automação contínua ${plot.autoLoop ? 'ativada' : 'desativada'} no ${plot.name}.`,
+      plot,
+      idlePlots: this.state.idlePlots
+    };
   }
 
   processOfflineProgress(forceTimeAway = null) {
@@ -1037,6 +1373,9 @@ class FarmEngine {
 
   startPlotProduction(plotId, cropId) {
     this.updateIdleProduction();
+    if (!this.hasTool('tool_hoe')) {
+      throw new Error("Você precisa de uma Enxada Agrícola para preparar e semear os talhões! Adquira na Oficina do Ferreiro.");
+    }
     if (!this.state.idlePlots) {
       throw new Error("Talhões não inicializados.");
     }
@@ -1055,6 +1394,13 @@ class FarmEngine {
       throw new Error(`Cultura "${cropId}" não reconhecida.`);
     }
 
+    // Tier license validation
+    const cropTier = cropDef.tier || 1;
+    const unlockedTier = this.state.farmTiers?.unlockedTier || 1;
+    if (cropTier > unlockedTier) {
+      throw new Error(`O cultivo de ${cropDef.name} exige Licença Agrícola Tier ${cropTier}! Seu patamar é Tier ${unlockedTier}. Adquira na Cooperativa.`);
+    }
+
     // Season validation — Inverno blocks all idle plots; otherwise check crop's seasons array
     const currentSeason = this.state.time?.season || 'Primavera';
     if (currentSeason === 'Inverno') {
@@ -1064,9 +1410,9 @@ class FarmEngine {
       throw new Error(`${cropDef.name} só cresce na ${cropDef.seasons.join(' ou ')}! Agora é ${currentSeason}. Escolha um cultivo da estação atual.`);
     }
 
-    const cost = cropDef.seedBatchCost || 20;
+    const cost = (cropDef.seedBatchCost || 20) + (cropDef.operatingCost || 10);
     if ((this.state.player.money || 0) < cost) {
-      throw new Error(`Ouro insuficiente para iniciar lote de ${cropDef.name} (Custo: ${cost}G, Você tem: ${this.state.player.money || 0}G).`);
+      throw new Error(`Ouro insuficiente para iniciar lote de ${cropDef.name} (Custo sementes + operação: ${cost}G, Você tem: ${this.state.player.money || 0}G).`);
     }
 
     this.state.player.money -= cost;
@@ -1076,6 +1422,7 @@ class FarmEngine {
     plot.status = 'RUNNING';
     plot.cropId = cropId;
     plot.cropName = cropDef.name;
+    plot.assignedCropId = cropId;
     plot.startedAt = now;
     plot.durationMs = durationMs;
     plot.completedAt = now + durationMs;
@@ -1093,6 +1440,9 @@ class FarmEngine {
 
   collectPlot(plotId) {
     this.updateIdleProduction();
+    if (!this.hasTool('tool_scythe')) {
+      throw new Error("Você precisa de uma Foice de Colheita para colher a produção dos talhões! Adquira na Oficina do Ferreiro.");
+    }
     if (!this.state.idlePlots) {
       throw new Error("Talhões não inicializados.");
     }
@@ -1153,6 +1503,9 @@ class FarmEngine {
 
   collectAllPlots() {
     this.updateIdleProduction();
+    if (!this.hasTool('tool_scythe')) {
+      throw new Error("Você precisa de uma Foice de Colheita para colher a produção dos talhões! Adquira na Oficina do Ferreiro.");
+    }
     if (!this.state.idlePlots) {
       throw new Error("Talhões não inicializados.");
     }
@@ -1217,6 +1570,14 @@ class FarmEngine {
     if (!this.state.facilities || !this.state.facilities[facilityId]) {
       throw new Error(`Instalação "${facilityId}" não encontrada.`);
     }
+
+    if (facilityId === 'coop' && !this.hasTool('tool_egg_basket')) {
+      throw new Error("Você precisa de um Cesto de Ovos para recolher a produção do Galinheiro! Adquira na Oficina do Ferreiro.");
+    }
+    if (facilityId === 'barn' && !this.hasTool('tool_pail')) {
+      throw new Error("Você precisa de um Balde de Ordenha para recolher a produção do Curral! Adquira na Oficina do Ferreiro.");
+    }
+
     const facility = this.state.facilities[facilityId];
     if (facility.currentYield <= 0) {
       throw new Error(`Nenhum produto pronto para coleta no ${facility.name}.`);

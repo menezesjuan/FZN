@@ -15,6 +15,8 @@ test('FarmEngine: till, water, plant, and grow lifecycle', (t) => {
   state.farm.tiles[tileKey].crop = null;
   state.farm.tiles[tileKey].isWatered = false;
   state.time.season = 'Primavera'; // Ensure Spring season for strawberry planting
+  state.farmTiers = { unlockedTier: 2, licenses: ['license_tier_1', 'license_tier_2'] };
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe'];
 
   const tillRes = farmEngine.tillTile(5, 5);
   assert.strictEqual(tillRes.success, true);
@@ -107,6 +109,7 @@ test('FarmEngine: sleep and natural day transition', (t) => {
 
 test('FarmEngine: livestock and egg collection system', (t) => {
   const state = farmEngine.getState();
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe', 'tool_egg_basket', 'tool_pail'];
   assert.ok(state.farm.animals.length >= 3, 'Farm has animals');
 
   // Sleep should lay eggs if under cap
@@ -204,11 +207,15 @@ test('FarmEngine: dairy cattle, petting and daily milking system', (t) => {
   let cow = state.farm.animals.find(a => a.type === 'female_cow');
   let bull = state.farm.animals.find(a => a.type === 'male_cow');
   if (!cow) {
-    cow = { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 };
+    cow = { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15, harvestsRemaining: 30, maxHarvests: 30, isAlive: true };
     state.farm.animals.push(cow);
+  } else {
+    cow.harvestsRemaining = 30;
+    cow.isAlive = true;
   }
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe', 'tool_egg_basket', 'tool_pail'];
   if (!bull) {
-    bull = { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15 };
+    bull = { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15, isAlive: true };
     state.farm.animals.push(bull);
   }
 
@@ -439,18 +446,20 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   plot1.cropId = null;
   plot1.completedAt = null;
 
-  // Give player enough money and set Spring season for leek
+  // Give player enough money and set Spring season for onion
   state.player.money = 1000;
   state.time.season = 'Primavera';
+  state.farmTiers = { unlockedTier: 2, licenses: ['license_tier_1', 'license_tier_2'] };
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe'];
   const initialMoney = state.player.money;
 
-  // 1. Start plot production with leek
-  const startRes = farmEngine.startPlotProduction(1, 'leek');
+  // 1. Start plot production with onion
+  const startRes = farmEngine.startPlotProduction(1, 'onion');
   assert.strictEqual(startRes.success, true);
   assert.strictEqual(startRes.plot.status, 'RUNNING');
-  assert.strictEqual(startRes.plot.cropId, 'leek');
+  assert.strictEqual(startRes.plot.cropId, 'onion');
   assert.strictEqual(startRes.plot.quantity, 16);
-  assert.strictEqual(state.player.money, initialMoney - 22, 'Seed batch cost 22G deducted');
+  assert.strictEqual(state.player.money, initialMoney - 31, 'Seed batch cost 25G + operating 6G = 31G deducted');
 
   // Cannot start an already running plot
   assert.throws(() => {
@@ -471,7 +480,7 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   const initialHarvested = state.stats.cropsHarvested || 0;
   const collectRes = farmEngine.collectPlot(1);
   assert.strictEqual(collectRes.success, true);
-  assert.strictEqual(collectRes.collected.produceId, 'crop_leek');
+  assert.strictEqual(collectRes.collected.produceId, 'crop_onion');
   assert.strictEqual(collectRes.collected.quantity, 16);
   assert.strictEqual(plot1.status, 'AVAILABLE');
   assert.strictEqual(plot1.cropId, null);
@@ -485,7 +494,7 @@ test('FarmEngine: Idle plots management, batch planting, timer progression, and 
   });
   const plot2 = state.idlePlots[1];
   const plot3 = state.idlePlots[2];
-  state.player.gold = 200;
+  state.player.money = 2000;
 
   farmEngine.startPlotProduction(2, 'strawberry');
   farmEngine.startPlotProduction(3, 'potato');
@@ -534,11 +543,17 @@ test('FarmEngine: Offline progress calculation and welcome report generation', (
 
 test('FarmEngine: Automated facilities (coop and barn) accumulation and harvesting', (t) => {
   const state = farmEngine.getState();
+  state.toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe', 'tool_egg_basket', 'tool_pail'];
+  state.facilities.coop.autoDrain = false;
+  state.facilities.barn.autoDrain = false;
+  state.player.money = 1000;
+  state.farm.animals.forEach(a => { a.harvestsRemaining = 30; a.isAlive = true; });
   assert.ok(state.facilities, 'Facilities object exists');
   assert.ok(state.facilities.coop, 'Coop exists');
   assert.ok(state.facilities.barn, 'Barn exists');
 
   // Simulate 10 minutes elapsed for coop (cycle = 2 min, output = 2 eggs -> 5 cycles = 10 eggs)
+  state.facilities.coop.currentYield = 0;
   state.facilities.coop.lastCollectedAt = Date.now() - (10 * 60 * 1000);
   farmEngine.updateIdleProduction();
   assert.strictEqual(state.facilities.coop.currentYield, 10);
@@ -553,6 +568,7 @@ test('FarmEngine: Automated facilities (coop and barn) accumulation and harvesti
   assert.strictEqual(state.stats.eggsCollected, initialEggs + 10);
 
   // Simulate 15 minutes elapsed for barn (cycle = 3 min, output = 1 milk -> 5 cycles = 5 milks)
+  state.facilities.barn.currentYield = 0;
   state.facilities.barn.lastCollectedAt = Date.now() - (15 * 60 * 1000);
   farmEngine.updateIdleProduction();
   assert.strictEqual(state.facilities.barn.currentYield, 5);
@@ -893,6 +909,7 @@ test('Sazonalidade: Mirtilo cresce no Verão — sucesso no plantio', () => {
   const state = farmEngine.getState();
   state.player.money = 500;
   state.time.season = 'Verão';
+  state.farmTiers = { unlockedTier: 3, licenses: ['license_tier_1', 'license_tier_2', 'license_tier_3'] };
   const tile = Object.values(state.farm.tiles)[0];
   tile.state = 'tilled';
   tile.crop = null;
@@ -935,6 +952,7 @@ test('Sazonalidade: Abóbora cresce no Outono — sucesso no plantio', () => {
   const state = farmEngine.getState();
   state.player.money = 500;
   state.time.season = 'Outono';
+  state.farmTiers = { unlockedTier: 4, licenses: ['license_tier_1', 'license_tier_2', 'license_tier_3', 'license_tier_4'] };
   const tile = Object.values(state.farm.tiles)[0];
   tile.state = 'tilled';
   tile.crop = null;
@@ -950,6 +968,7 @@ test('Sazonalidade: Uva cresce no Outono — sucesso no plantio', () => {
   const state = farmEngine.getState();
   state.player.money = 500;
   state.time.season = 'Outono';
+  state.farmTiers = { unlockedTier: 4, licenses: ['license_tier_1', 'license_tier_2', 'license_tier_3', 'license_tier_4'] };
   const tile = Object.values(state.farm.tiles)[0];
   tile.state = 'tilled';
   tile.crop = null;

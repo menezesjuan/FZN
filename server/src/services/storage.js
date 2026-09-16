@@ -41,24 +41,29 @@ function getDefaultGameState() {
       position: { x: 10, y: 8 },
       location: 'farm'
     },
+    farmTiers: {
+      unlockedTier: 1,
+      licenses: ["license_tier_1"]
+    },
+    toolsOwned: ["tool_hoe", "tool_can"],
     farm: {
       width: farmWidth,
       height: farmHeight,
       tiles,
       animals: [
-        { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3 },
-        { id: "chicken_red_1", type: "red_chicken", name: "Penélope", x: 22, y: 3, affection: 15 },
-        { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4 },
-        { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4 },
-        { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15 },
-        { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15 }
+        { id: "chicken_1", type: "adult_chicken", name: "Gertrudes", x: 20, y: 3, harvestsRemaining: 20, maxHarvests: 20, isAlive: true },
+        { id: "chicken_red_1", type: "red_chicken", name: "Penélope", x: 22, y: 3, affection: 15, harvestsRemaining: 20, maxHarvests: 20, isAlive: true },
+        { id: "chick_1", type: "baby_chicken", name: "Piu-Piu", x: 19, y: 4, harvestsRemaining: 20, maxHarvests: 20, isAlive: true },
+        { id: "chick_2", type: "baby_chicken", name: "Amarelinho", x: 21, y: 4, harvestsRemaining: 20, maxHarvests: 20, isAlive: true },
+        { id: "cow_1", type: "female_cow", name: "Mimosa", x: 19, y: 9, lastMilkedDay: 0, affection: 15, harvestsRemaining: 30, maxHarvests: 30, isAlive: true },
+        { id: "cow_2", type: "male_cow", name: "Ferdinando", x: 22, y: 10, affection: 15, harvestsRemaining: 30, maxHarvests: 30, isAlive: true }
       ],
       eggs: [
         { id: "egg_init_1", x: 20, y: 4, quality: "normal" }
       ],
       chest: [
         { id: "material_wood", quantity: 5, quality: "normal", slot: 0 },
-        { id: "seeds_strawberry", quantity: 2, quality: "normal", slot: 1 }
+        { id: "seeds_onion", quantity: 4, quality: "normal", slot: 1 }
       ],
       trees: [
         { id: "tree_1", x: 2, y: 2, health: 3, maxHealth: 3, isStump: false },
@@ -72,10 +77,8 @@ function getDefaultGameState() {
     inventory: [
       { id: "tool_hoe", quantity: 1, quality: "normal", slot: 0 },
       { id: "tool_can", quantity: 1, quality: "normal", slot: 1 },
-      { id: "seeds_strawberry", quantity: 4, quality: "normal", slot: 2 },
-      { id: "seeds_potato", quantity: 4, quality: "normal", slot: 3 },
-      { id: "tool_axe", quantity: 1, quality: "normal", slot: 4 },
-      { id: "tool_pail", quantity: 1, quality: "normal", slot: 5 }
+      { id: "seeds_onion", quantity: 6, quality: "normal", slot: 2 },
+      { id: "seeds_leek", quantity: 4, quality: "normal", slot: 3 }
     ],
     time: {
       day: 1,
@@ -98,10 +101,10 @@ function getDefaultGameState() {
     lastActive: Date.now(),
     offlineReport: null,
     idlePlots: [
-      { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
-      { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
-      { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
-      { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
+      { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
+      { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
+      { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
+      { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
     ],
     facilities: {
       coop: {
@@ -113,6 +116,8 @@ function getDefaultGameState() {
         outputPerCycle: 2,
         currentYield: 0,
         maxYield: 12,
+        feedCostPerCycle: 15,
+        autoDrain: false,
         produceId: "produce_egg",
         produceName: "Ovo Caipira"
       },
@@ -125,6 +130,8 @@ function getDefaultGameState() {
         outputPerCycle: 1,
         currentYield: 0,
         maxYield: 8,
+        feedCostPerCycle: 35,
+        autoDrain: false,
         produceId: "produce_milk",
         produceName: "Leite Fresco Caipira"
       }
@@ -235,6 +242,25 @@ class StorageService {
           while (usedSlots.has(freeSlot) && freeSlot < 24) freeSlot++;
           state.inventory.push({ id: 'tool_pail', quantity: 1, quality: 'normal', slot: freeSlot });
         }
+        if (!state.farmTiers) {
+          state.farmTiers = { unlockedTier: 1, licenses: ["license_tier_1"] };
+        }
+        if (!state.toolsOwned) {
+          state.toolsOwned = state.inventory.filter(i => i.id.startsWith('tool_')).map(i => i.id);
+          if (!state.toolsOwned.includes('tool_hoe')) state.toolsOwned.push('tool_hoe');
+          if (!state.toolsOwned.includes('tool_can')) state.toolsOwned.push('tool_can');
+        }
+        for (const animal of state.farm.animals) {
+          if (animal.harvestsRemaining === undefined) {
+            animal.harvestsRemaining = (animal.type.includes('cow') ? 30 : 20);
+          }
+          if (animal.maxHarvests === undefined) {
+            animal.maxHarvests = (animal.type.includes('cow') ? 30 : 20);
+          }
+          if (animal.isAlive === undefined) {
+            animal.isAlive = true;
+          }
+        }
         if (!state.player.location) {
           state.player.location = 'farm';
         }
@@ -252,11 +278,16 @@ class StorageService {
         }
         if (!state.idlePlots) {
           state.idlePlots = [
-            { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
-            { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
-            { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
-            { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
+            { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
+            { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
+            { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
+            { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, autoLoop: false, assignedCropId: null, startedAt: null, durationMs: null, completedAt: null, quantity: 0, quality: "normal", bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
           ];
+        } else {
+          for (const p of state.idlePlots) {
+            if (p.autoLoop === undefined) p.autoLoop = false;
+            if (p.assignedCropId === undefined) p.assignedCropId = p.cropId || null;
+          }
         }
         if (!state.facilities) {
           state.facilities = {

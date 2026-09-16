@@ -13,9 +13,12 @@ export default function ManagementDashboard({
   playerMoney = 0,
   stats = {},
   currentSeason = 'Primavera',
+  unlockedTier = 1,
+  toolsOwned = [],
   onStartPlot,
   onCollectPlot,
   onCollectAllPlots,
+  onToggleAutoLoop,
   onCollectFacility,
   onStartProcessor,
   onCollectProcessor,
@@ -283,17 +286,54 @@ export default function ManagementDashboard({
                             (Setor 3x3)
                           </span>
                         </div>
-                        <span style={{
-                          fontSize: '10px',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          background: isReady ? '#166534' : (isRunning ? '#1e40af' : '#374151'),
-                          color: isReady ? '#86efac' : (isRunning ? '#93c5fd' : '#d1d5db')
-                        }}>
-                          {isReady ? '✨ PRONTO' : (isRunning ? '⏳ CULTIVANDO' : '🟢 LIVRE')}
-                        </span>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          {plot.autoLoop && (
+                            <span style={{ fontSize: '9px', background: '#14532d', color: '#86efac', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold' }}>
+                              🔁 IDLE
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            background: plot.status === 'INSUFFICIENT_FUNDS' ? '#7f1d1d' : (isReady ? '#166534' : (isRunning ? '#1e40af' : '#374151')),
+                            color: plot.status === 'INSUFFICIENT_FUNDS' ? '#fca5a5' : (isReady ? '#86efac' : (isRunning ? '#93c5fd' : '#d1d5db'))
+                          }}>
+                            {plot.status === 'INSUFFICIENT_FUNDS' ? '⚠️ SEM SALDO' : (isReady ? '✨ PRONTO' : (isRunning ? '⏳ CULTIVANDO' : '🟢 LIVRE'))}
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Error Banner */}
+                      {(plot.status === 'INSUFFICIENT_FUNDS' || plot.autoError) && (
+                        <div style={{
+                          background: 'rgba(239, 68, 68, 0.2)',
+                          border: '1px solid #ef4444',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          fontSize: '10px',
+                          color: '#fecaca',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span>⚠️</span>
+                          <span>
+                            {plot.autoError === 'OUT_OF_MONEY' || plot.status === 'INSUFFICIENT_FUNDS'
+                              ? 'Automação pausada: Saldo insuficiente para sementes e taxa de operação!'
+                              : plot.autoError === 'MISSING_SCYTHE'
+                              ? 'Automação pausada: Adquira a Foice de Colheita na Oficina do Ferreiro!'
+                              : plot.autoError === 'MISSING_HOE'
+                              ? 'Automação pausada: Adquira a Enxada Agrícola na Oficina do Ferreiro!'
+                              : plot.autoError === 'TIER_LOCKED'
+                              ? 'Automação pausada: Licença de Tier insuficiente na Cooperativa!'
+                              : plot.autoError === 'SEASON_MISMATCH'
+                              ? 'Automação pausada: Cultivo incompatível com a estação atual!'
+                              : 'Automação pausada'}
+                          </span>
+                        </div>
+                      )}
 
                       {/* State: AVAILABLE */}
                       {isAvailable && (
@@ -317,10 +357,14 @@ export default function ManagementDashboard({
                             >
                               {sortedCrops.map(crop => {
                                 const inSeason = inSeasonIds.has(crop.id);
+                                const tierOk = unlockedTier >= (crop.tier || 1);
+                                const canPlant = inSeason && tierOk;
                                 const seasonLabel = crop.seasons ? crop.seasons.join('/') : 'Qualquer';
+                                const totalBatchCost = (crop.seedBatchCost || 20) + (crop.operatingCost || 6);
+
                                 return (
-                                  <option key={crop.id} value={crop.id} disabled={!inSeason}>
-                                    {inSeason ? '✅' : '🚫'} {crop.name} ({seasonLabel}) — {crop.seedBatchCost || 20}G | {crop.batchYield || 10}un | {crop.idleDurationSeconds || 60}s
+                                  <option key={crop.id} value={crop.id} disabled={!canPlant}>
+                                    {!tierOk ? '🔒' : (inSeason ? '✅' : '🚫')} [T{crop.tier || 1}] {crop.name} ({seasonLabel}) — Custo: {totalBatchCost}G | {crop.batchYield || 10}un
                                   </option>
                                 );
                               })}
@@ -330,33 +374,41 @@ export default function ManagementDashboard({
                           {selectedCropDef && (
                             <div style={{
                               display: 'flex',
-                              justifyContent: 'space-between',
+                              flexDirection: 'column',
+                              gap: '2px',
                               fontSize: '10px',
                               color: '#cbd5e1',
-                              background: 'rgba(0,0,0,0.2)',
-                              padding: '4px 8px',
+                              background: 'rgba(0,0,0,0.25)',
+                              padding: '6px 8px',
                               borderRadius: '4px'
                             }}>
-                              <span>Investimento: <strong style={{ color: '#facc15' }}>{selectedCropDef.seedBatchCost || 20}G</strong></span>
-                              <span>Retorno Est.: <strong style={{ color: '#4ade80' }}>{selectedCropDef.batchYield || 10} un</strong></span>
-                              <span>Duração: <strong>{selectedCropDef.idleDurationSeconds || 60}s</strong></span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Sementes: <strong style={{ color: '#facc15' }}>{selectedCropDef.seedBatchCost || 20}G</strong></span>
+                                <span>Taxa Operação: <strong style={{ color: '#f87171' }}>{selectedCropDef.operatingCost || 6}G</strong></span>
+                                <span>Total: <strong style={{ color: '#ffd700' }}>{(selectedCropDef.seedBatchCost || 20) + (selectedCropDef.operatingCost || 6)}G</strong></span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                <span>Safra: <strong style={{ color: '#4ade80' }}>{selectedCropDef.batchYield || 10} un</strong></span>
+                                <span>Duração: <strong>{selectedCropDef.idleDurationSeconds || 60}s</strong></span>
+                                <span>Licença: <strong style={{ color: '#38bdf8' }}>Tier {selectedCropDef.tier || 1}</strong></span>
+                              </div>
                             </div>
                           )}
 
                           <button
                             className="pixel-btn"
                             onClick={() => onStartPlot(plot.id, selectedCropId)}
-                            disabled={playerMoney < (selectedCropDef?.seedBatchCost || 20)}
+                            disabled={playerMoney < ((selectedCropDef?.seedBatchCost || 20) + (selectedCropDef?.operatingCost || 6)) || unlockedTier < (selectedCropDef?.tier || 1)}
                             style={{
-                              background: playerMoney >= (selectedCropDef?.seedBatchCost || 20) ? '#2563eb' : '#475569',
+                              background: (playerMoney >= ((selectedCropDef?.seedBatchCost || 20) + (selectedCropDef?.operatingCost || 6)) && unlockedTier >= (selectedCropDef?.tier || 1)) ? '#2563eb' : '#475569',
                               color: '#fff',
                               borderColor: '#1d4ed8',
                               padding: '6px 10px',
                               fontSize: '11px',
-                              cursor: playerMoney >= (selectedCropDef?.seedBatchCost || 20) ? 'pointer' : 'not-allowed'
+                              cursor: 'pointer'
                             }}
                           >
-                            🌱 Iniciar Lote de Cultivo
+                            {unlockedTier < (selectedCropDef?.tier || 1) ? `🔒 Requer Tier ${selectedCropDef?.tier}` : (playerMoney < ((selectedCropDef?.seedBatchCost || 20) + (selectedCropDef?.operatingCost || 6)) ? 'Sem Saldo' : '🌱 Iniciar Lote de Cultivo')}
                           </button>
                         </div>
                       )}
@@ -414,10 +466,34 @@ export default function ManagementDashboard({
                               fontWeight: 'bold'
                             }}
                           >
-                            🧺 Colher para a Mochila
+                            🧺 Colher para o Armazém
                           </button>
                         </div>
                       )}
+
+                      {/* 100% IDLE Auto-Loop Toggle */}
+                      <div style={{
+                        marginTop: '6px',
+                        padding: '6px 10px',
+                        background: plot.autoLoop ? 'rgba(34, 197, 94, 0.12)' : 'rgba(0,0,0,0.25)',
+                        border: plot.autoLoop ? '1px solid #16a34a' : '1px solid #334155',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: plot.autoLoop ? '#86efac' : '#cbd5e1' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!plot.autoLoop}
+                            onChange={(e) => onToggleAutoLoop && onToggleAutoLoop(plot.id, e.target.checked, selectedCropId)}
+                          />
+                          <span>🔁 Automação 100% IDLE</span>
+                        </label>
+                        <span style={{ fontSize: '10px', color: plot.autoLoop ? '#4ade80' : '#64748b' }}>
+                          {plot.autoLoop ? 'Auto-Colhe & Rebloco' : 'Manual'}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}

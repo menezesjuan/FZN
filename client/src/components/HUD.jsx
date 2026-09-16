@@ -17,7 +17,12 @@ export default function HUD({
   onToggleMute,
   itemsConfig,
   totalReadyHarvests = 0,
-  onHarvestAll
+  onHarvestAll,
+  farmTiers = { unlockedTier: 1 },
+  toolsOwned = [],
+  onOpenToolsShop,
+  onOpenRanch,
+  onOpenLicenses
 }) {
   const [showDevTools, setShowDevTools] = React.useState(false);
 
@@ -44,9 +49,30 @@ export default function HUD({
             <span className="font-pixel" style={{ fontSize: '11px', color: '#ffec40', textShadow: '1px 1px 0 #000' }}>
               Nvl. {player.level} {player.name}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px' }}>
-              <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🪙</span>
-              <span className="font-pixel" style={{ fontSize: '12px', color: '#fff' }}>{player.money}G</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'rgba(5, 150, 105, 0.3)',
+                  border: '1px solid #10b981',
+                  padding: '2px 7px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                onClick={onOpenLicenses}
+                title="Ver Patamar e Licenças da Fazenda na Cooperativa"
+              >
+                <span style={{ fontSize: '11px' }}>⭐</span>
+                <span className="font-pixel" style={{ fontSize: '10px', color: '#6ee7b7' }}>
+                  T{farmTiers?.unlockedTier || 1}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+                <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🪙</span>
+                <span className="font-pixel" style={{ fontSize: '12px', color: '#fff' }}>{player.money}G</span>
+              </div>
             </div>
           </div>
 
@@ -136,6 +162,30 @@ export default function HUD({
             </button>
             <button className="pixel-btn" onClick={onOpenInventory} title="Abrir Mochila (I)">
               🎒 Mochila
+            </button>
+            <button
+              className="pixel-btn"
+              onClick={onOpenToolsShop}
+              title="Oficina do Ferreiro — Comprar Ferramentas"
+              style={{ background: '#b45309', borderColor: '#78350f', color: '#fef3c7' }}
+            >
+              🔨 Ferramentas
+            </button>
+            <button
+              className="pixel-btn"
+              onClick={onOpenRanch}
+              title="Rancho Marlene — Comprar Animais & Rebanho"
+              style={{ background: '#047857', borderColor: '#064e3b', color: '#d1fae5' }}
+            >
+              🐄 Rancho
+            </button>
+            <button
+              className="pixel-btn"
+              onClick={onOpenLicenses}
+              title="Cooperativa Agrícola — Licenças de Expansão"
+              style={{ background: '#4338ca', borderColor: '#312e81', color: '#e0e7ff' }}
+            >
+              🏛️ Licenças
             </button>
             <button className="pixel-btn" onClick={onOpenShop} title="Loja do Vilarejo (B)">
               🏪 Loja

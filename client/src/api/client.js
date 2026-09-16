@@ -57,5 +57,10 @@ export const api = {
   getMyListings: () => request('/market/my-listings'),
   createListing: (itemId, quantity, unitPrice, quality) => request('/market/list', { method: 'POST', body: JSON.stringify({ itemId, quantity, unitPrice, quality }) }),
   buyFromListing: (listingId, quantity) => request('/market/buy', { method: 'POST', body: JSON.stringify({ listingId, quantity }) }),
-  cancelListing: (listingId) => request('/market/cancel', { method: 'POST', body: JSON.stringify({ listingId }) })
+  cancelListing: (listingId) => request('/market/cancel', { method: 'POST', body: JSON.stringify({ listingId }) }),
+  // Hardcore Economy & Automation
+  buyTool: (toolId) => request('/farm/buy-tool', { method: 'POST', body: JSON.stringify({ toolId }) }),
+  buyAnimal: (animalItemId, customName) => request('/farm/buy-animal', { method: 'POST', body: JSON.stringify({ animalItemId, customName }) }),
+  buyTierLicense: (targetTier) => request('/farm/buy-tier-license', { method: 'POST', body: JSON.stringify({ targetTier }) }),
+  togglePlotAutoLoop: (plotId, enable, cropId) => request(`/farm/idle-plots/${plotId}/auto-loop`, { method: 'POST', body: JSON.stringify({ enable, cropId }) })
 };

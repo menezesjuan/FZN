@@ -11,6 +11,9 @@ import ChestModal from './components/ChestModal';
 import OfflineProgressModal from './components/OfflineProgressModal';
 import ManagementDashboard from './components/ManagementDashboard';
 import MarketModal from './components/MarketModal';
+import ToolsShopModal from './components/ToolsShopModal';
+import RanchModal from './components/RanchModal';
+import LicensesModal from './components/LicensesModal';
 import Toast from './components/Toast';
 
 export default function App() {
@@ -23,6 +26,9 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isToolsShopOpen, setIsToolsShopOpen] = useState(false);
+  const [isRanchOpen, setIsRanchOpen] = useState(false);
+  const [isLicensesOpen, setIsLicensesOpen] = useState(false);
   const [isChestOpen, setIsChestOpen] = useState(false);
   const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
@@ -97,11 +103,20 @@ export default function App() {
         setIsManagementOpen(prev => !prev);
       } else if (e.key === 'e' || e.key === 'E') {
         setIsMarketOpen(prev => !prev);
+      } else if (e.key === 't' || e.key === 'T') {
+        setIsToolsShopOpen(prev => !prev);
+      } else if (e.key === 'r' || e.key === 'R') {
+        setIsRanchOpen(prev => !prev);
+      } else if (e.key === 'l' || e.key === 'L') {
+        setIsLicensesOpen(prev => !prev);
       } else if (e.key === 'c' || e.key === 'C') {
         harvestAllRef.current?.();
       } else if (e.key === 'Escape') {
         setIsInventoryOpen(false);
         setIsShopOpen(false);
+        setIsToolsShopOpen(false);
+        setIsRanchOpen(false);
+        setIsLicensesOpen(false);
         setIsSleepModalOpen(false);
         setIsManagementOpen(false);
         setIsOfflineReportOpen(false);
@@ -763,6 +778,52 @@ export default function App() {
     }
   };
 
+  const handleBuyTool = async (toolId) => {
+    try {
+      const data = await api.buyTool(toolId);
+      setGameState(data.state);
+      audio.playCoins();
+      showToast(data.message || "Ferramenta adquirida com sucesso!", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleBuyAnimal = async (animalItemId, customName) => {
+    try {
+      const data = await api.buyAnimal(animalItemId, customName);
+      setGameState(data.state);
+      audio.playCoins();
+      showToast(data.message || "Animal adquirido e acomodado no rancho!", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleBuyLicense = async (targetTier) => {
+    try {
+      const data = await api.buyTierLicense(targetTier);
+      setGameState(data.state);
+      audio.playLevelUp();
+      showToast(data.message || `Licença Tier ${targetTier} adquirida!`, "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const handleTogglePlotAutoLoop = async (plotId, enable, cropId) => {
+    try {
+      const data = await api.togglePlotAutoLoop(plotId, enable, cropId);
+      setGameState(prev => ({
+        ...prev,
+        idlePlots: data.idlePlots
+      }));
+      showToast(data.message, "info");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
@@ -822,6 +883,11 @@ export default function App() {
         itemsConfig={itemsConfig}
         totalReadyHarvests={totalReadyHarvests}
         onHarvestAll={handleHarvestAll}
+        farmTiers={gameState?.farmTiers}
+        toolsOwned={gameState?.toolsOwned}
+        onOpenToolsShop={() => setIsToolsShopOpen(prev => !prev)}
+        onOpenRanch={() => setIsRanchOpen(prev => !prev)}
+        onOpenLicenses={() => setIsLicensesOpen(prev => !prev)}
       />
 
       {/* Dynamic Quest & Onboarding Guide */}
@@ -887,9 +953,12 @@ export default function App() {
         playerMoney={gameState?.player?.money || 0}
         stats={gameState?.stats || {}}
         currentSeason={gameState?.time?.season || 'Primavera'}
+        unlockedTier={gameState?.farmTiers?.unlockedTier || 1}
+        toolsOwned={gameState?.toolsOwned || []}
         onStartPlot={handleStartPlot}
         onCollectPlot={handleCollectPlot}
         onCollectAllPlots={handleCollectAllPlots}
+        onToggleAutoLoop={handleTogglePlotAutoLoop}
         onCollectFacility={handleCollectFacility}
         onStartProcessor={handleStartProcessor}
         onCollectProcessor={handleCollectProcessor}
@@ -917,6 +986,36 @@ export default function App() {
         onBuy={handleBuyFromListing}
         onCreateListing={handleCreateListing}
         onCancelListing={handleCancelListing}
+      />
+
+      {/* Tools Shop Modal */}
+      <ToolsShopModal
+        isOpen={isToolsShopOpen}
+        onClose={() => setIsToolsShopOpen(false)}
+        toolsOwned={gameState?.toolsOwned || []}
+        playerMoney={gameState?.player?.money || 0}
+        onBuyTool={handleBuyTool}
+      />
+
+      {/* Livestock Ranch Modal */}
+      <RanchModal
+        isOpen={isRanchOpen}
+        onClose={() => setIsRanchOpen(false)}
+        animals={gameState?.farm?.animals || []}
+        unlockedTier={gameState?.farmTiers?.unlockedTier || 1}
+        playerMoney={gameState?.player?.money || 0}
+        onBuyAnimal={handleBuyAnimal}
+      />
+
+      {/* Cooperativa / Licenses Modal */}
+      <LicensesModal
+        isOpen={isLicensesOpen}
+        onClose={() => setIsLicensesOpen(false)}
+        unlockedTier={gameState?.farmTiers?.unlockedTier || 1}
+        playerMoney={gameState?.player?.money || 0}
+        warehouseLevel={gameState?.warehouse?.level || 1}
+        woodCount={gameState?.inventory?.find(i => i.id === 'material_wood')?.quantity || 0}
+        onBuyLicense={handleBuyLicense}
       />
     </div>
   );

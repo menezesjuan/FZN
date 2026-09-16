@@ -548,7 +548,14 @@ export class GameEngine {
       }));
     }
     if (state.farm && state.farm.animals) {
+      // Prune deceased animals
+      this.animals = this.animals.filter(local => {
+        const s = state.farm.animals.find(a => a.id === local.id);
+        return s && s.isAlive !== false;
+      });
+
       state.farm.animals.forEach(serverAnimal => {
+        if (serverAnimal.isAlive === false) return;
         let local = this.animals.find(a => a.id === serverAnimal.id);
         const isCow = serverAnimal.type === 'female_cow' || serverAnimal.type === 'male_cow';
         if (!local) {
@@ -571,6 +578,9 @@ export class GameEngine {
         }
         local.lastMilkedDay = serverAnimal.lastMilkedDay;
         local.affection = serverAnimal.affection;
+        local.harvestsRemaining = serverAnimal.harvestsRemaining;
+        local.maxHarvests = serverAnimal.maxHarvests;
+        local.isAlive = serverAnimal.isAlive !== false;
       });
     }
     if (state.player && !this.initialSync) {
@@ -1795,7 +1805,29 @@ export class GameEngine {
             }
 
             // 2. Interactive Status Badges
-            if (isReady) {
+            if (plot.autoLoop) {
+              ctx.fillStyle = 'rgba(20, 83, 45, 0.9)';
+              ctx.fillRect(spX - 12, spY - 32, 24, 8);
+              ctx.strokeStyle = '#4ade80';
+              ctx.lineWidth = 0.8;
+              ctx.strokeRect(spX - 12, spY - 32, 24, 8);
+              ctx.fillStyle = '#86efac';
+              ctx.font = 'bold 5px sans-serif';
+              ctx.fillText("🔁 IDLE", spX - 9, spY - 26);
+            }
+
+            if (plot.status === 'INSUFFICIENT_FUNDS') {
+              const bounce = Math.sin(now / 150) * 2;
+              const bannerY = spY - 22 + bounce;
+              ctx.fillStyle = '#7f1d1d';
+              ctx.fillRect(spX - 22, bannerY, 44, 11);
+              ctx.strokeStyle = '#ef4444';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(spX - 22, bannerY, 44, 11);
+              ctx.fillStyle = '#fecaca';
+              ctx.font = 'bold 6px sans-serif';
+              ctx.fillText("⚠️ SEM SALDO", spX - 19, bannerY + 8);
+            } else if (isReady) {
               // Stardew Valley Harvest Notification Banner (pulsing bobbing effect)
               const bounce = Math.sin(now / 160) * 3;
               const bannerY = spY - 26 + bounce;
@@ -1854,6 +1886,7 @@ export class GameEngine {
 
     // 5. Pasture Animals (Chickens, chicks, and dairy cattle)
     for (const animal of this.animals) {
+      if (animal.isAlive === false) continue;
       const isCow = animal.type === 'female_cow' || animal.type === 'male_cow';
       const sortY = animal.y + (isCow ? 28 : 14);
 

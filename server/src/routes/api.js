@@ -437,10 +437,49 @@ router.post('/market/cancel', (req, res) => {
 });
 
 // Marketplace: Get player's own listings
-router.get('/market/my-listings', (req, res) => {
+// Economy: Buy tools from the blacksmith
+router.post('/farm/buy-tool', (req, res) => {
   try {
-    const listings = marketplaceEngine.getPlayerListings();
-    res.json({ success: true, listings });
+    const { toolId } = req.body;
+    if (!toolId) return res.status(400).json({ success: false, error: 'toolId é obrigatório.' });
+    const result = farmEngine.buyTool(toolId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Economy: Buy livestock from the ranch
+router.post('/farm/buy-animal', (req, res) => {
+  try {
+    const { animalItemId, name } = req.body;
+    if (!animalItemId) return res.status(400).json({ success: false, error: 'animalItemId é obrigatório.' });
+    const result = farmEngine.buyAnimal(animalItemId, name);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Economy: Purchase farm tier license
+router.post('/farm/buy-tier-license', (req, res) => {
+  try {
+    const { targetTier } = req.body;
+    if (!targetTier) return res.status(400).json({ success: false, error: 'targetTier é obrigatório.' });
+    const result = farmEngine.buyTierLicense(Number(targetTier));
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Idle Plots: Toggle continuous auto-loop
+router.post('/farm/idle-plots/:id/auto-loop', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enable, cropId } = req.body;
+    const result = farmEngine.togglePlotAutoLoop(Number(id), enable, cropId);
+    res.json(result);
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

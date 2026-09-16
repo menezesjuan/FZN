@@ -2,12 +2,25 @@
   "items": {
     "tool_hoe": {
       "id": "tool_hoe",
-      "name": "Enxada de Trabalho",
+      "name": "Enxada Agrícola",
       "category": "tool",
       "type": "hoe",
-      "description": "Prepara o solo para receber sementes.",
+      "description": "Prepara o solo para receber sementes. Obrigatória para semeadura e automação de plantio.",
       "energyCost": 2,
-      "icon": "hoe"
+      "icon": "hoe",
+      "buyPrice": 250,
+      "canBuy": true
+    },
+    "tool_scythe": {
+      "id": "tool_scythe",
+      "name": "Foice de Colheita",
+      "category": "tool",
+      "type": "scythe",
+      "description": "Lâmina afiada para colher lavouras maduras. Obrigatória para colheita manual e auto-harvest.",
+      "energyCost": 2,
+      "icon": "scythe",
+      "buyPrice": 300,
+      "canBuy": true
     },
     "tool_can": {
       "id": "tool_can",
@@ -16,7 +29,20 @@
       "type": "can",
       "description": "Mantém as plantações hidratadas para que possam crescer.",
       "energyCost": 1,
-      "icon": "watering_can"
+      "icon": "watering_can",
+      "buyPrice": 200,
+      "canBuy": true
+    },
+    "tool_egg_basket": {
+      "id": "tool_egg_basket",
+      "name": "Cesto de Ovos Caipira",
+      "category": "tool",
+      "type": "basket",
+      "description": "Cesto trançado obrigatório para recolher ovos no galinheiro sem quebrar a casca.",
+      "energyCost": 1,
+      "icon": "egg_basket",
+      "buyPrice": 200,
+      "canBuy": true
     },
     "seeds_strawberry": {
       "id": "seeds_strawberry",
@@ -100,7 +126,9 @@
       "type": "axe",
       "description": "Usado para cortar árvores e recolher toras de madeira.",
       "energyCost": 2,
-      "icon": "axe"
+      "icon": "axe",
+      "buyPrice": 350,
+      "canBuy": true
     },
     "material_wood": {
       "id": "material_wood",
@@ -115,9 +143,11 @@
       "name": "Balde de Ordenha",
       "category": "tool",
       "type": "pail",
-      "description": "Usado para ordenhar vacas leiteiras e recolher leite fresco.",
+      "description": "Usado para ordenhar vacas leiteiras e recolher leite fresco. Obrigatório para a operação do curral.",
       "energyCost": 2,
-      "icon": "milk_bucket"
+      "icon": "milk_bucket",
+      "buyPrice": 450,
+      "canBuy": true
     },
     "produce_milk": {
       "id": "produce_milk",
@@ -228,6 +258,43 @@
       "category": "artisan",
       "baseSellPrice": 180,
       "description": "Suco prensado artesanalmente das melhores uvas da fazenda."
+    },
+    "license_tier_2": {
+      "id": "license_tier_2",
+      "name": "Licença Agrícola Tier 2 - Produtor Local",
+      "category": "license",
+      "buyPrice": 1200,
+      "description": "Certificado da Cooperativa Agrícola. Autoriza o plantio de Batata e Morango e aquisição de Galinhas."
+    },
+    "license_tier_3": {
+      "id": "license_tier_3",
+      "name": "Licença Agrícola Tier 3 - Agronegócio Sazonal",
+      "category": "license",
+      "buyPrice": 4500,
+      "description": "Certificado avançado. Autoriza o plantio de Mirtilo, Melancia e Uva e exploração do Curral Leiteiro."
+    },
+    "license_tier_4": {
+      "id": "license_tier_4",
+      "name": "Licença Agrícola Tier 4 - Império Agroindustrial",
+      "category": "license",
+      "buyPrice": 14000,
+      "description": "Título de Mestre Rural. Autoriza o cultivo de Abóboras Nobres e manufatura de queijos e geléias especiais."
+    },
+    "animal_chicken": {
+      "id": "animal_chicken",
+      "name": "Galinha Poedeira Jovem",
+      "category": "livestock",
+      "buyPrice": 350,
+      "maxHarvests": 20,
+      "description": "Ave dócil comprada no Rancho. Produz até 20 ovos caipiras ao longo da sua vida produtiva."
+    },
+    "animal_cow": {
+      "id": "animal_cow",
+      "name": "Vaca Leiteira Holandesa",
+      "category": "livestock",
+      "buyPrice": 1600,
+      "maxHarvests": 30,
+      "description": "Bovino produtivo comprado no Rancho. Rende até 30 ordenhas de leite fresco antes do fim de vida útil."
     }
   },
   "qualities": {
