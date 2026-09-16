@@ -37,6 +37,7 @@ export default function App() {
   const engineRef = useRef(null);
   const toastTimeoutRef = useRef(null);
   const prevLevelRef = useRef(null);
+  const harvestAllRef = useRef(null);
 
   const showToast = useCallback((message, type = 'info') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -96,6 +97,8 @@ export default function App() {
         setIsManagementOpen(prev => !prev);
       } else if (e.key === 'e' || e.key === 'E') {
         setIsMarketOpen(prev => !prev);
+      } else if (e.key === 'c' || e.key === 'C') {
+        harvestAllRef.current?.();
       } else if (e.key === 'Escape') {
         setIsInventoryOpen(false);
         setIsShopOpen(false);
@@ -692,6 +695,7 @@ export default function App() {
       showToast(err.message, 'error');
     }
   };
+  harvestAllRef.current = handleHarvestAll;
 
   // ── Marketplace handlers ──
   const handleOpenMarket = useCallback(async () => {

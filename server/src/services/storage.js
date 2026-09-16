@@ -178,8 +178,15 @@ class StorageService {
 
   loadState() {
     try {
+      let raw = null;
       if (fs.existsSync(SAVE_FILE)) {
-        const raw = fs.readFileSync(SAVE_FILE, 'utf8');
+        raw = fs.readFileSync(SAVE_FILE, 'utf8');
+      }
+      if ((!raw || raw.trim().length === 0) && fs.existsSync(TEMP_FILE)) {
+        raw = fs.readFileSync(TEMP_FILE, 'utf8');
+      }
+
+      if (raw && raw.trim().length > 0) {
         const state = JSON.parse(raw);
         if (!state.farm.animals) {
           state.farm.animals = [];

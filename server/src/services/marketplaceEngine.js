@@ -10,23 +10,33 @@ const MARKET_FILE = path.join(DATA_DIR, 'marketplace.json');
 // NPC seed listings — populated on first run and refreshed if expired
 // -------------------------------------------------------------------
 const NPC_SEED_LISTINGS = [
-  // Fazenda Verde — crops
+  // Fazenda Verde — seasonal crops
   { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_strawberry',  itemName: 'Morango',                  quality: 'normal', quantity: 40, unitPrice: 55  },
   { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_strawberry',  itemName: 'Morango',                  quality: 'silver', quantity: 20, unitPrice: 70  },
   { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_potato',      itemName: 'Batata',                   quality: 'normal', quantity: 60, unitPrice: 40  },
   { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_leek',        itemName: 'Alho-poró',                quality: 'normal', quantity: 50, unitPrice: 28  },
   { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_onion',       itemName: 'Cebola',                   quality: 'normal', quantity: 80, unitPrice: 20  },
-  // Celeiro do Sul — produce & artisan
+  { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_blueberry',   itemName: 'Mirtilo Silvestre',        quality: 'normal', quantity: 45, unitPrice: 75  },
+  { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_melon',       itemName: 'Melancia Doce',            quality: 'normal', quantity: 15, unitPrice: 230 },
+  { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_pumpkin',     itemName: 'Abóbora de Outono',        quality: 'normal', quantity: 12, unitPrice: 290 },
+  { sellerId: 'npc_fazenda_verde', sellerName: 'Fazenda Verde',      itemId: 'crop_grape',       itemName: 'Uva Nobre',                quality: 'normal', quantity: 35, unitPrice: 100 },
+  // Celeiro do Sul — produce & artisan goods
   { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'produce_egg',      itemName: 'Ovo Caipira',              quality: 'normal', quantity: 30, unitPrice: 32  },
   { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'produce_milk',     itemName: 'Leite Fresco Caipira',     quality: 'normal', quantity: 25, unitPrice: 60  },
   { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'artisan_cheese',   itemName: 'Queijo Curado da Fazenda', quality: 'normal', quantity: 12, unitPrice: 130 },
   { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'artisan_mayo',     itemName: 'Maionese Caipira Especial',quality: 'normal', quantity: 15, unitPrice: 78  },
   { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'artisan_jam',      itemName: 'Geléia Real de Morango',   quality: 'silver', quantity: 8,  unitPrice: 195 },
+  { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'artisan_blueberry_jam', itemName: 'Geléia de Mirtilo Artesanal', quality: 'normal', quantity: 10, unitPrice: 185 },
+  { sellerId: 'npc_celeiro_sul',   sellerName: 'Celeiro do Sul',     itemId: 'artisan_grape_juice', itemName: 'Suco de Uva Puro',     quality: 'normal', quantity: 14, unitPrice: 165 },
   // Mercador Itinerante — materials & seeds
   { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'material_wood',    itemName: 'Madeira Rústica',          quality: 'normal', quantity: 100,unitPrice: 6   },
   { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_strawberry', itemName: 'Sementes de Morango',      quality: 'normal', quantity: 30, unitPrice: 22  },
   { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_potato',     itemName: 'Sementes de Batata',       quality: 'normal', quantity: 40, unitPrice: 15  },
   { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_leek',       itemName: 'Sementes de Alho-poró',    quality: 'normal', quantity: 35, unitPrice: 10  },
+  { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_blueberry',  itemName: 'Sementes de Mirtilo',      quality: 'normal', quantity: 25, unitPrice: 35  },
+  { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_melon',      itemName: 'Sementes de Melancia',     quality: 'normal', quantity: 20, unitPrice: 70  },
+  { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_pumpkin',    itemName: 'Sementes de Abóbora',      quality: 'normal', quantity: 15, unitPrice: 90  },
+  { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'seeds_grape',      itemName: 'Sementes de Uva',          quality: 'normal', quantity: 30, unitPrice: 50  },
   { sellerId: 'npc_mercador',      sellerName: 'Mercador Itinerante',itemId: 'crop_strawberry',  itemName: 'Morango',                  quality: 'gold',   quantity: 10, unitPrice: 88  },
 ];
 
