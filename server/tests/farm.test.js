@@ -66,7 +66,8 @@ test('EconomyEngine: seed purchasing and crop selling with quality multiplier', 
   assert.strictEqual(buyRes.success, true);
   assert.strictEqual(state.player.money, 64);
 
-  // Sell item test
+  // Sell item test (clean any existing strawberries from previous random harvest)
+  state.inventory = state.inventory.filter(i => i.id !== 'crop_strawberry');
   farmEngine.addItemToInventory('crop_strawberry', 2, 'gold');
   const itemInInv = state.inventory.find(i => i.id === 'crop_strawberry' && i.quality === 'gold');
   assert.ok(itemInInv, 'Item in inventory');

@@ -103,10 +103,19 @@ export class GameEngine {
 
     // Dirt & stepping stone pathways (world tile coordinates)
     this.pathways = new Set([
-      // Path leading from house door (x=18, y=6) to cultivation field
-      '18,6', '18,7', '17,7', '16,7', '15,7', '14,7', '13,7', '12,7', '11,7', '10,7', '9,7', '8,7',
-      '13,6', '13,5', // towards chest
-      '14,8', '14,9', '14,10' // towards south plots
+      // Main east-west road connecting House (x=18, y=6) to cultivation plots
+      '18,6', '18,7', '17,7', '16,7', '15,7', '14,7', '13,7', '12,7', '11,7', '10,7', '9,7', '8,7', '7,7',
+      // Central crossroads avenue between the 4 Idle Plots (Alfa, Beta, Gama, Delta)
+      '2,7', '3,7', '4,7', '5,7', '6,7',
+      '6,3', '6,4', '6,5', '6,6', '6,8', '6,9', '6,10', '6,11',
+      // Branch towards storage chest & north workbench
+      '13,6', '13,5',
+      // Branch to chicken coop pasture gate (x=20, y=5)
+      '19,6', '20,6',
+      // Branch to dairy cattle pasture gate (x=18, y=9)
+      '18,8', '17,8', '17,9',
+      // Branch towards south artisanal area
+      '14,8', '14,9', '14,10'
     ]);
 
     // Keys state
@@ -700,21 +709,29 @@ export class GameEngine {
     const pastureRightFence = { x: 23 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
     if (intersects(box, pastureRightFence)) return true;
 
-    // Pasture bottom fence: x=20 to 23 at y=5 (gate opening at x=19)
-    const pastureBottomFence = { x: 20 * TILE_SIZE, y: 5 * TILE_SIZE, w: 3.5 * TILE_SIZE, h: 12 };
+    // Pasture left fence: x=19, y=1 to 5 (fully enclosed west boundary)
+    const pastureLeftFence = { x: 19 * TILE_SIZE, y: 1 * TILE_SIZE, w: 12, h: 4.2 * TILE_SIZE };
+    if (intersects(box, pastureLeftFence)) return true;
+
+    // Pasture bottom fence: x=21 to 23 at y=5 (gate opening at x=20)
+    const pastureBottomFence = { x: 21 * TILE_SIZE, y: 5 * TILE_SIZE, w: 2.5 * TILE_SIZE, h: 12 };
     if (intersects(box, pastureBottomFence)) return true;
 
-    // Cattle pasture fences (south-east meadow)
-    const cattleTopFence = { x: 19 * TILE_SIZE, y: 8 * TILE_SIZE, w: 4.5 * TILE_SIZE, h: 12 };
+    const pastureBottomCorner = { x: 19 * TILE_SIZE, y: 5 * TILE_SIZE, w: 12, h: 12 };
+    if (intersects(box, pastureBottomCorner)) return true;
+
+    // Cattle pasture fences (south-east meadow, aligned x=18 to 23, y=8 to 12)
+    const cattleTopFence = { x: 18 * TILE_SIZE, y: 8 * TILE_SIZE, w: 5.5 * TILE_SIZE, h: 12 };
     if (intersects(box, cattleTopFence)) return true;
 
     const cattleRightFence = { x: 23 * TILE_SIZE, y: 8 * TILE_SIZE, w: 12, h: 4.5 * TILE_SIZE };
     if (intersects(box, cattleRightFence)) return true;
 
-    const cattleBottomFence = { x: 19 * TILE_SIZE, y: 12 * TILE_SIZE, w: 4.5 * TILE_SIZE, h: 12 };
+    const cattleBottomFence = { x: 18 * TILE_SIZE, y: 12 * TILE_SIZE, w: 5.5 * TILE_SIZE, h: 12 };
     if (intersects(box, cattleBottomFence)) return true;
 
-    const cattleLeftFence = { x: 18 * TILE_SIZE, y: 9 * TILE_SIZE, w: 12, h: 3.2 * TILE_SIZE };
+    // Cattle west fence: y=10 to 12 at x=18 (gate opening at y=9)
+    const cattleLeftFence = { x: 18 * TILE_SIZE, y: 10 * TILE_SIZE, w: 12, h: 2.5 * TILE_SIZE };
     if (intersects(box, cattleLeftFence)) return true;
 
     return false;
@@ -1219,44 +1236,55 @@ export class GameEngine {
     }
     drawPiece('post_cap_r', 12, 1);
 
-    // 2. Chicken Pasture Enclosure (x=19 to 23, y=1 to 5)
+    // 2. Chicken Pasture Enclosure (x=19 to 23, y=1 to 5, fully enclosed with gate at x=20, y=5)
     drawPiece('corner_nw', 19, 1);
     for (let x = 20; x <= 22; x++) {
       drawPiece('horizontal_t', x, 1);
     }
     drawPiece('corner_ne', 23, 1);
 
+    // East vertical posts
     for (let y = 2; y <= 4; y++) {
       drawPiece('vertical_e', 23, y);
     }
 
-    drawPiece('corner_se', 23, 5);
+    // West vertical posts (fully enclosing the chicken run)
+    for (let y = 2; y <= 4; y++) {
+      drawPiece('vertical_w', 19, y);
+    }
+
+    // South border with gate
+    drawPiece('corner_sw', 19, 5);
+    drawPiece('post_isolated', 20, 5); // Gate post opening
     for (let x = 21; x <= 22; x++) {
       drawPiece('horizontal_b', x, 5);
     }
-    drawPiece('post_isolated', 20, 5); // Gate opening at x=19
+    drawPiece('corner_se', 23, 5);
 
-    // 3. Cattle Pasture Enclosure (x=18 to 23, y=8 to 12)
-    drawPiece('corner_nw', 19, 8);
-    for (let x = 20; x <= 22; x++) {
+    // 3. Cattle Pasture Enclosure (x=18 to 23, y=8 to 12, fully aligned)
+    drawPiece('corner_nw', 18, 8);
+    for (let x = 19; x <= 22; x++) {
       drawPiece('horizontal_t', x, 8);
     }
     drawPiece('corner_ne', 23, 8);
 
+    // East vertical posts
     for (let y = 9; y <= 11; y++) {
       drawPiece('vertical_e', 23, y);
     }
 
+    // West vertical posts and gate
+    drawPiece('post_isolated', 18, 9); // Gate opening at y=9
+    for (let y = 10; y <= 11; y++) {
+      drawPiece('vertical_w', 18, y);
+    }
+
+    // South border
     drawPiece('corner_sw', 18, 12);
     for (let x = 19; x <= 22; x++) {
       drawPiece('horizontal_b', x, 12);
     }
     drawPiece('corner_se', 23, 12);
-
-    for (let y = 10; y <= 11; y++) {
-      drawPiece('vertical_w', 18, y);
-    }
-    drawPiece('post_isolated', 18, 10); // Gate opening at y=9
   }
 
   renderDepthSortedEntities(ctx) {

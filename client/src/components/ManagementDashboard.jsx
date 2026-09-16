@@ -679,6 +679,178 @@ export default function ManagementDashboard({
           {/* TAB 4: OVERVIEW & WAREHOUSE */}
           {activeTab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Executive Farm Overview & KPIs */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '10px'
+              }}>
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>Saldo em Caixa</div>
+                  <div className="font-pixel" style={{ fontSize: '15px', color: '#facc15', marginTop: '3px' }}>
+                    💰 {playerMoney}G
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>Lotação Armazém</div>
+                  <div className="font-pixel" style={{ fontSize: '13px', color: usedSlots >= currentCapacity ? '#f87171' : '#38bdf8', marginTop: '3px' }}>
+                    📦 {usedSlots}/{currentCapacity} ({Math.round((usedSlots / currentCapacity) * 100)}%)
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>Talhões Agrícolas</div>
+                  <div className="font-pixel" style={{ fontSize: '13px', color: readyPlotsCount > 0 ? '#4ade80' : (runningPlotsCount > 0 ? '#60a5fa' : '#94a3b8'), marginTop: '3px' }}>
+                    🌱 {runningPlotsCount} ativ / {readyPlotsCount} pront
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(15, 23, 42, 0.75)', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>Máquinas Artesanais</div>
+                  <div className="font-pixel" style={{ fontSize: '13px', color: readyProcessorsCount > 0 ? '#4ade80' : '#c084fc', marginTop: '3px' }}>
+                    🏭 {readyProcessorsCount} prontas
+                  </div>
+                </div>
+              </div>
+
+              {/* Strategic Bottleneck Diagnostics */}
+              {(() => {
+                const bottlenecks = [];
+                const hasMilk = inventory.some(i => i.id === 'produce_milk' && i.quantity > 0);
+                const hasEgg = inventory.some(i => i.id === 'produce_egg' && i.quantity > 0);
+                const hasFruit = inventory.some(i => (i.id === 'crop_strawberry' || i.id === 'crop_blueberry' || i.id === 'crop_grape') && i.quantity >= 2);
+                const availablePlots = idlePlots.filter(p => p.status === 'AVAILABLE').length;
+
+                if (usedSlots >= currentCapacity) {
+                  bottlenecks.push({
+                    type: 'error',
+                    icon: '🚨',
+                    title: 'Armazém Totalmente Lotado!',
+                    desc: 'A capacidade atingiu 100%. Novas colheitas serão bloqueadas. Venda excedentes no Mercado ou evolua o silo.'
+                  });
+                } else if (usedSlots / currentCapacity >= 0.8) {
+                  bottlenecks.push({
+                    type: 'warning',
+                    icon: '⚠️',
+                    title: 'Alerta de Armazém Crítico (>80%)',
+                    desc: 'O armazém está próximo do limite. Considere transformar matéria-prima em produtos artesanais ou anunciar itens.'
+                  });
+                }
+
+                if (readyPlotsCount > 0) {
+                  bottlenecks.push({
+                    type: 'success',
+                    icon: '🌾',
+                    title: `${readyPlotsCount} Talhão(ões) com Colheita Pronta`,
+                    desc: 'Lavouras maduras aguardando coleta para liberar terra para novas safras.',
+                    action: () => setActiveTab('plots'),
+                    actionLabel: 'Ir para Talhões'
+                  });
+                }
+
+                if (availablePlots > 0 && !isWinter) {
+                  bottlenecks.push({
+                    type: 'info',
+                    icon: '🌱',
+                    title: `${availablePlots} Talhão(ões) Ocioso(s)`,
+                    desc: 'Você tem terras aradas disponíveis para novo ciclo de plantio.',
+                    action: () => setActiveTab('plots'),
+                    actionLabel: 'Plantar Agora'
+                  });
+                }
+
+                if ((cheeseIdle && hasMilk) || (mayoIdle && hasEgg) || (preservesIdle && hasFruit)) {
+                  bottlenecks.push({
+                    type: 'warning',
+                    icon: '🧀',
+                    title: 'Matérias-Primas Ociosas no Estoque',
+                    desc: 'Você possui leite, ovos ou frutas na mochila e máquinas livres para agregar valor.',
+                    action: () => setActiveTab('processors'),
+                    actionLabel: 'Processar Itens'
+                  });
+                }
+
+                if ((facilities?.coop?.accumulated || 0) >= 3 || (facilities?.barn?.accumulated || 0) >= 2) {
+                  bottlenecks.push({
+                    type: 'info',
+                    icon: '🥚',
+                    title: 'Produção Animal Pronta para Coleta',
+                    desc: 'O galinheiro ou o curral acumularam produção suficiente para recolhimento.',
+                    action: () => setActiveTab('facilities'),
+                    actionLabel: 'Coletar Pecuária'
+                  });
+                }
+
+                return (
+                  <div style={{
+                    background: 'rgba(15, 23, 42, 0.65)',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    border: '1px solid #334155'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '14px' }}>🔍</span>
+                      <h3 className="font-pixel" style={{ fontSize: '12px', color: '#f1f5f9' }}>
+                        Diagnóstico & Gargalos da Propriedade
+                      </h3>
+                    </div>
+
+                    {bottlenecks.length === 0 ? (
+                      <div style={{
+                        padding: '12px',
+                        background: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid #16a34a',
+                        borderRadius: '6px',
+                        color: '#86efac',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <span>✨</span>
+                        <span>Sua fazenda está em perfeita harmonia! Todas as linhas de produção estão ativas e fluindo sem gargalos.</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {bottlenecks.map((b, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              background: b.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : (b.type === 'warning' ? 'rgba(234, 179, 8, 0.12)' : (b.type === 'success' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(56, 189, 248, 0.12)')),
+                              border: `1px solid ${b.type === 'error' ? '#ef4444' : (b.type === 'warning' ? '#eab308' : (b.type === 'success' ? '#22c55e' : '#38bdf8'))}`
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '16px' }}>{b.icon}</span>
+                              <div>
+                                <strong style={{ fontSize: '11px', color: '#f8fafc' }}>{b.title}</strong>
+                                <div style={{ fontSize: '10px', color: '#cbd5e1' }}>{b.desc}</div>
+                              </div>
+                            </div>
+
+                            {b.action && (
+                              <button
+                                className="pixel-btn"
+                                onClick={b.action}
+                                style={{ padding: '4px 8px', fontSize: '10px', whiteSpace: 'nowrap' }}
+                              >
+                                {b.actionLabel} ➔
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Warehouse Management Card */}
               <div style={{
                 background: 'rgba(15, 23, 42, 0.65)',
