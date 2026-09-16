@@ -436,6 +436,34 @@ export default function App() {
     }
   };
 
+  // Weather Radio Handler
+  const handleTuneRadio = useCallback(async () => {
+    audio.playRadioJingle();
+    try {
+      const forecast = await api.getWeatherForecast();
+      if (forecast && forecast.tomorrow) {
+        showToast(`📻 Rádio de FZN: "${forecast.tomorrow.description}"`, 'info');
+      }
+    } catch (err) {
+      showToast("📻 Rádio de FZN: 'Amanhã o dia será propício para o trabalho no campo!'", 'info');
+    }
+  }, [showToast]);
+
+  // Dev toggle weather
+  const handleDevToggleWeather = async () => {
+    try {
+      const current = gameState?.weather || 'sunny';
+      const next = current === 'sunny' ? 'rainy' : (current === 'rainy' ? 'stormy' : 'sunny');
+      const res = await api.devSetWeather(next);
+      if (res.success) {
+        showToast(`Clima alterado para: ${next === 'stormy' ? 'Tempestade ⛈️' : (next === 'rainy' ? 'Chuva 🌧️' : 'Ensolarado ☀️')}`, 'info');
+        await loadState();
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {/* Toast notifications */}
@@ -464,6 +492,7 @@ export default function App() {
         onInteractDoor={() => setIsSleepModalOpen(true)}
         onOpenChest={handleOpenChest}
         isChestOpen={isChestOpen}
+        onTuneRadio={handleTuneRadio}
         onCollectEgg={handleCollectEgg}
         onChopTree={handleChopTree}
         onMilkCow={handleMilkCow}
@@ -476,6 +505,7 @@ export default function App() {
       <HUD
         player={gameState?.player}
         time={gameState?.time}
+        weather={gameState?.weather || 'sunny'}
         inventory={gameState?.inventory || []}
         selectedSlot={selectedSlot}
         onSelectSlot={setSelectedSlot}
@@ -483,6 +513,7 @@ export default function App() {
         onOpenShop={() => setIsShopOpen(true)}
         onDevAdvanceTime={handleDevAdvanceTime}
         onDevRestoreEnergy={handleDevRestoreEnergy}
+        onDevToggleWeather={handleDevToggleWeather}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         itemsConfig={itemsConfig}

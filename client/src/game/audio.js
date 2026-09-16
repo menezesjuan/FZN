@@ -5,6 +5,13 @@ class SoundEngine {
     this.muted = false;
     this.lastFootstep = 0;
 
+    // Rain ambient state
+    this.rainNode = null;
+    this.rainFilter = null;
+    this.rainGain = null;
+    this.isRaining = false;
+    this.rainIsIndoors = false;
+
     // Load mute preference from storage
     if (typeof window !== 'undefined') {
       this.muted = localStorage.getItem('fzn_muted') === 'true';
@@ -27,6 +34,16 @@ class SoundEngine {
     this.muted = !this.muted;
     if (typeof window !== 'undefined') {
       localStorage.setItem('fzn_muted', this.muted ? 'true' : 'false');
+    }
+    if (this.muted) {
+      if (this.rainGain && this.ctx) {
+        this.rainGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      }
+    } else {
+      if (this.isRaining && this.rainGain && this.ctx) {
+        const targetVol = this.rainIsIndoors ? 0.08 : 0.18;
+        this.rainGain.gain.setValueAtTime(targetVol, this.ctx.currentTime);
+      }
     }
     return this.muted;
   }
@@ -649,6 +666,146 @@ class SoundEngine {
     gain.connect(this.ctx.destination);
 
     noise.start();
+  }
+
+  // Ambient continuous rain synthesis
+  startRain(isIndoors = false) {
+    this.isRaining = true;
+    this.rainIsIndoors = isIndoors;
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    if (this.rainNode) {
+      this.updateRainIndoors(isIndoors);
+      return;
+    }
+
+    try {
+      const bufferSize = this.ctx.sampleRate * 2; // 2s looping buffer
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastVal = 0;
+      // Pinkish noise for natural rainfall
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        lastVal = (lastVal * 0.85) + (white * 0.15);
+        data[i] = lastVal * 2.5;
+      }
+
+      this.rainNode = this.ctx.createBufferSource();
+      this.rainNode.buffer = buffer;
+      this.rainNode.loop = true;
+
+      this.rainFilter = this.ctx.createBiquadFilter();
+      this.rainFilter.type = isIndoors ? 'lowpass' : 'bandpass';
+      this.rainFilter.frequency.setValueAtTime(isIndoors ? 450 : 1400, this.ctx.currentTime);
+      this.rainFilter.Q.setValueAtTime(1.0, this.ctx.currentTime);
+
+      this.rainGain = this.ctx.createGain();
+      const targetGain = isIndoors ? 0.08 : 0.18;
+      this.rainGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+      this.rainGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.8);
+
+      this.rainNode.connect(this.rainFilter);
+      this.rainFilter.connect(this.rainGain);
+      this.rainGain.connect(this.ctx.destination);
+
+      this.rainNode.start();
+    } catch (e) {
+      console.warn('[Audio] Rain synthesis error:', e);
+    }
+  }
+
+  updateRainIndoors(isIndoors) {
+    this.rainIsIndoors = isIndoors;
+    if (!this.ctx || !this.rainFilter || !this.rainGain) return;
+    const t = this.ctx.currentTime;
+    const targetFreq = isIndoors ? 450 : 1400;
+    const targetGain = this.muted ? 0 : (isIndoors ? 0.08 : 0.18);
+    this.rainFilter.type = isIndoors ? 'lowpass' : 'bandpass';
+    this.rainFilter.frequency.setTargetAtTime(targetFreq, t, 0.3);
+    this.rainGain.gain.setTargetAtTime(targetGain, t, 0.3);
+  }
+
+  stopRain() {
+    this.isRaining = false;
+    if (!this.rainNode || !this.ctx || !this.rainGain) {
+      this.rainNode = null;
+      return;
+    }
+    const t = this.ctx.currentTime;
+    this.rainGain.gain.linearRampToValueAtTime(0.001, t + 0.6);
+    setTimeout(() => {
+      if (this.rainNode) {
+        try {
+          this.rainNode.stop();
+          this.rainNode.disconnect();
+        } catch (_) {}
+        this.rainNode = null;
+        this.rainFilter = null;
+        this.rainGain = null;
+      }
+    }, 650);
+  }
+
+  // Thunder rumble for stormy weather
+  playThunder() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Sub-bass pitch-falling oscillator
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 1.2);
+
+    gain.gain.setValueAtTime(0.01, t);
+    gain.gain.linearRampToValueAtTime(0.4, t + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.005, t + 1.8);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 1.85);
+
+    // Filtered noise crackle / acoustic rumble tail
+    this.playNoiseBuffer(1.4, 220, 0.25);
+  }
+
+  // Retro radio jingle for weather forecast
+  playRadioJingle() {
+    if (this.muted) return;
+    this.ensureContext();
+    if (!this.ctx) return;
+
+    const notes = [
+      { f: 523.25, t: 0.00, d: 0.10 }, // C5
+      { f: 659.25, t: 0.10, d: 0.10 }, // E5
+      { f: 783.99, t: 0.20, d: 0.12 }, // G5
+      { f: 1046.50, t: 0.32, d: 0.22 } // C6
+    ];
+
+    const baseT = this.ctx.currentTime;
+    notes.forEach(note => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(note.f, baseT + note.t);
+
+      gain.gain.setValueAtTime(0.01, baseT + note.t);
+      gain.gain.linearRampToValueAtTime(0.18, baseT + note.t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, baseT + note.t + note.d);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(baseT + note.t);
+      osc.stop(baseT + note.t + note.d + 0.02);
+    });
   }
 }
 

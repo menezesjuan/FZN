@@ -3,6 +3,7 @@ import React from 'react';
 export default function HUD({ 
   player, 
   time, 
+  weather = 'sunny',
   inventory, 
   selectedSlot, 
   onSelectSlot, 
@@ -10,6 +11,7 @@ export default function HUD({
   onOpenShop,
   onDevAdvanceTime,
   onDevRestoreEnergy,
+  onDevToggleWeather,
   isMuted,
   onToggleMute,
   itemsConfig 
@@ -73,14 +75,33 @@ export default function HUD({
           </div>
         </div>
 
-        {/* Right: Date & Menu Buttons */}
+        {/* Right: Date, Weather & Menu Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          <div className="pixel-panel pointer-events-auto" style={{ padding: '8px 14px', textAlign: 'right' }}>
-            <div className="font-pixel" style={{ fontSize: '11px', color: '#ffea75', marginBottom: '2px' }}>
-              🌸 {time?.season || 'Primavera'} — Dia {time?.day || 1}
+          <div className="pixel-panel pointer-events-auto" style={{ padding: '8px 14px', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              borderRadius: '6px',
+              background: weather === 'stormy' ? 'rgba(79, 70, 229, 0.3)' : (weather === 'rainy' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(234, 179, 8, 0.2)'),
+              border: `1px solid ${weather === 'stormy' ? '#818cf8' : (weather === 'rainy' ? '#38bdf8' : '#facc15')}`,
+              fontSize: '18px',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'
+            }} title={weather === 'stormy' ? 'Tempestade de Primavera ⛈️ (Solo regado pela chuva)' : (weather === 'rainy' ? 'Chuva Fértil 🌧️ (Solo regado pela chuva)' : 'Sol Radiante ☀️ (Céu límpido)')}>
+              {weather === 'stormy' ? '⛈️' : (weather === 'rainy' ? '🌧️' : '☀️')}
             </div>
-            <div style={{ fontSize: '12px', color: '#fff', opacity: 0.85 }}>
-              Ano {time?.year || 1}
+            <div>
+              <div className="font-pixel" style={{ fontSize: '11px', color: '#ffea75', marginBottom: '2px' }}>
+                🌸 {time?.season || 'Primavera'} — Dia {time?.day || 1}
+              </div>
+              <div style={{ fontSize: '11px', color: '#e2e8f0', display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                <span>Ano {time?.year || 1}</span>
+                <span style={{ color: weather === 'stormy' ? '#a5b4fc' : (weather === 'rainy' ? '#7dd3fc' : '#fef08a'), fontWeight: 'bold' }}>
+                  {weather === 'stormy' ? 'Tempestade' : (weather === 'rainy' ? 'Chuvoso' : 'Ensolarado')}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -109,7 +130,7 @@ export default function HUD({
             </button>
           </div>
 
-          {/* Optional subtle collapsible dev drawer */}
+          {/* Collapsible dev drawer */}
           {showDevTools && (
             <div className="pointer-events-auto pixel-panel" style={{ display: 'flex', gap: '6px', padding: '6px 10px', marginTop: '4px' }}>
               <button className="pixel-btn" onClick={onDevAdvanceTime} style={{ background: '#7e57c2', color: '#fff', borderColor: '#4527a0', padding: '4px 8px', fontSize: '11px' }} title="Acelerar 60s">
@@ -118,6 +139,11 @@ export default function HUD({
               <button className="pixel-btn" onClick={onDevRestoreEnergy} style={{ background: '#0288d1', color: '#fff', borderColor: '#01579b', padding: '4px 8px', fontSize: '11px' }} title="Restaurar Energia">
                 ⚡ Restaurar
               </button>
+              {onDevToggleWeather && (
+                <button className="pixel-btn" onClick={onDevToggleWeather} style={{ background: '#059669', color: '#fff', borderColor: '#047857', padding: '4px 8px', fontSize: '11px' }} title="Alternar Clima">
+                  🌦️ Clima
+                </button>
+              )}
             </div>
           )}
         </div>

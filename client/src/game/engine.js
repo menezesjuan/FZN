@@ -5,7 +5,7 @@ const TILE_SIZE = 16;
 const ZOOM = 3; // 16 * 3 = 48px on screen
 
 export class GameEngine {
-  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest) {
+  constructor(canvas, onTileInteract, onShowToast, onInteractDoor, onCollectEgg, onChopTree, onMilkCow, onPetAnimal, onTransitionLocation, onOpenChest, onTuneRadio) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onTileInteract = onTileInteract;
@@ -17,15 +17,35 @@ export class GameEngine {
     this.onPetAnimal = onPetAnimal;
     this.onTransitionLocation = onTransitionLocation;
     this.onOpenChest = onOpenChest;
+    this.onTuneRadio = onTuneRadio;
     this.location = 'farm'; // 'farm' | 'house_interior'
     this.isNearDoor = false;
     this.isNearBed = false;
     this.isNearInteriorExit = false;
     this.isNearChest = false;
+    this.isNearRadio = false;
     this.isChestOpen = false;
     this.isTransitioning = false;
     this.treeShakes = {};
     this.interiorEmbers = [];
+
+    // Weather & Atmospheric Particles
+    this.rainParticles = [];
+    this.rainRipples = [];
+    this.lightningTimer = 10;
+    this.lightningFlashAlpha = 0;
+
+    // Pre-populate 130 rain particles across farm bounds
+    const worldW = 24 * TILE_SIZE;
+    const worldH = 18 * TILE_SIZE;
+    for (let i = 0; i < 130; i++) {
+      this.rainParticles.push({
+        x: Math.random() * (worldW + 80) - 40,
+        y: Math.random() * (worldH + 80) - 40,
+        len: Math.random() * 6 + 7,
+        speed: Math.random() * 80 + 380
+      });
+    }
 
     // Pasture animals (Chickens, chicks, and dairy cattle)
     this.animals = [
@@ -163,6 +183,7 @@ export class GameEngine {
     window.removeEventListener('keyup', this.handleKeyUp);
     this.canvas.removeEventListener('mousemove', this.handleMouseMove);
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+    audio.stopRain();
   }
 
   handleKeyDown(e) {
@@ -175,7 +196,11 @@ export class GameEngine {
           this.transitionToLocation('house_interior');
         }
       } else if (this.location === 'house_interior') {
-        if (this.isNearBed) {
+        if (this.isNearRadio) {
+          if (this.onTuneRadio) {
+            this.onTuneRadio();
+          }
+        } else if (this.isNearBed) {
           if (this.onInteractDoor) {
             this.onInteractDoor();
           }
@@ -212,7 +237,18 @@ export class GameEngine {
 
     // Interior interactions
     if (this.location === 'house_interior') {
-      // 1. Bed click interaction (x: 20 to 46, y: 30 to 70)
+      // 1. Radio Weather Station click interaction (x: 52 to 74, y: 8 to 32)
+      if (this.mouse.worldX >= 52 && this.mouse.worldX <= 74 && this.mouse.worldY >= 8 && this.mouse.worldY <= 32) {
+        const dist = Math.hypot(62 - playerCenterX, 32 - playerCenterY);
+        if (dist <= 38) {
+          if (this.onTuneRadio) this.onTuneRadio();
+        } else if (this.onShowToast) {
+          this.onShowToast("Aproxime-se do rádio para sintonizar a previsão do tempo.", "info");
+        }
+        return;
+      }
+
+      // 2. Bed click interaction (x: 20 to 46, y: 30 to 70)
       if (this.mouse.worldX >= 20 && this.mouse.worldX <= 46 && this.mouse.worldY >= 30 && this.mouse.worldY <= 70) {
         const dist = Math.hypot(33 - playerCenterX, 50 - playerCenterY);
         if (dist <= 38) {
@@ -223,7 +259,7 @@ export class GameEngine {
         return;
       }
 
-      // 2. Doorway exit click interaction (x: 84 to 108, y: 120 to 140)
+      // 3. Doorway exit click interaction (x: 84 to 108, y: 120 to 140)
       if (this.mouse.worldX >= 84 && this.mouse.worldX <= 108 && this.mouse.worldY >= 120 && this.mouse.worldY <= 140) {
         const dist = Math.hypot(96 - playerCenterX, 126 - playerCenterY);
         if (dist <= 36) {
@@ -234,7 +270,7 @@ export class GameEngine {
         return;
       }
 
-      // 3. Fireplace warm crackle interaction (x: 138 to 168, y: 24 to 68)
+      // 4. Fireplace warm crackle interaction (x: 138 to 168, y: 24 to 68)
       if (this.mouse.worldX >= 138 && this.mouse.worldX <= 168 && this.mouse.worldY >= 24 && this.mouse.worldY <= 68) {
         const dist = Math.hypot(153 - playerCenterX, 52 - playerCenterY);
         if (dist <= 48) {
@@ -465,6 +501,18 @@ export class GameEngine {
       }
       this.initialSync = true;
     }
+
+    // Weather sound synchronization
+    const isRaining = state.weather === 'rainy' || state.weather === 'stormy';
+    if (isRaining) {
+      if (!audio.isRaining) {
+        audio.startRain(this.location === 'house_interior');
+      } else {
+        audio.updateRainIndoors(this.location === 'house_interior');
+      }
+    } else if (audio.isRaining) {
+      audio.stopRain();
+    }
   }
 
   transitionToLocation(targetLocation) {
@@ -484,6 +532,7 @@ export class GameEngine {
     this.isNearDoor = false;
     this.isNearBed = false;
     this.isNearInteriorExit = false;
+    this.isNearRadio = false;
     this.isTransitioning = false;
 
     if (newLocation === 'house_interior') {
@@ -492,6 +541,11 @@ export class GameEngine {
     } else {
       this.camera.x = this.player.x + 16;
       this.camera.y = this.player.y + 16;
+    }
+
+    // Adjust rain sound muffling for current room
+    if (this.gameState && (this.gameState.weather === 'rainy' || this.gameState.weather === 'stormy')) {
+      audio.updateRainIndoors(newLocation === 'house_interior');
     }
   }
 
@@ -843,6 +897,7 @@ export class GameEngine {
       const playerCenterY = this.player.y + 24;
       this.isNearBed = Math.hypot(33 - playerCenterX, 50 - playerCenterY) < 32;
       this.isNearInteriorExit = Math.hypot(96 - playerCenterX, 126 - playerCenterY) < 24;
+      this.isNearRadio = Math.hypot(62 - playerCenterX, 32 - playerCenterY) < 28;
     } else {
       // Outdoor farm camera & clamping
       const targetCamX = this.player.x + 16;
@@ -906,6 +961,66 @@ export class GameEngine {
         delete this.treeShakes[id];
       }
     }
+
+    // Update weather & rain simulation
+    const isRaining = this.gameState && (this.gameState.weather === 'rainy' || this.gameState.weather === 'stormy');
+    const isStormy = this.gameState && this.gameState.weather === 'stormy';
+
+    if (isRaining) {
+      const worldW = (this.gameState?.farm?.width || 24) * TILE_SIZE;
+      const worldH = (this.gameState?.farm?.height || 18) * TILE_SIZE;
+
+      for (const drop of this.rainParticles) {
+        drop.y += drop.speed * dt;
+        drop.x += (drop.speed * 0.18) * dt;
+
+        if (drop.y > worldH + 20 || drop.x > worldW + 40) {
+          // Reset to top or left edge
+          if (Math.random() < 0.25) {
+            drop.x = -20;
+            drop.y = Math.random() * worldH;
+          } else {
+            drop.x = Math.random() * (worldW + 60) - 20;
+            drop.y = -20;
+          }
+
+          // Spawn ground ripple on splash
+          if (this.location === 'farm' && Math.random() < 0.45) {
+            this.rainRipples.push({
+              x: Math.min(worldW, Math.max(0, drop.x)),
+              y: Math.min(worldH, Math.max(0, drop.y + 15)),
+              r: 1,
+              maxR: Math.random() * 2.5 + 2,
+              alpha: 0.55
+            });
+          }
+        }
+      }
+
+      // Update ripples
+      for (let i = this.rainRipples.length - 1; i >= 0; i--) {
+        const rip = this.rainRipples[i];
+        rip.r += 12 * dt;
+        rip.alpha -= 3.5 * dt;
+        if (rip.alpha <= 0 || rip.r >= rip.maxR) {
+          this.rainRipples.splice(i, 1);
+        }
+      }
+
+      // Storm lightning & thunder
+      if (isStormy) {
+        this.lightningTimer -= dt;
+        if (this.lightningTimer <= 0) {
+          this.lightningTimer = Math.random() * 18 + 14; // Every 14 to 32 seconds
+          this.lightningFlashAlpha = 0.65;
+          audio.playThunder();
+        }
+      }
+    }
+
+    if (this.lightningFlashAlpha > 0) {
+      this.lightningFlashAlpha = Math.max(0, this.lightningFlashAlpha - 5.5 * dt);
+    }
   }
 
   render() {
@@ -955,12 +1070,18 @@ export class GameEngine {
       // 6.1 Draw Chest Prompt
       this.renderChestPrompt(ctx);
 
+      // 6.2 Draw Rain Particles & Ground Ripples
+      this.renderRain(ctx);
+
       // 7. Draw Ambient Day/Night Lighting and Lantern Glow
       this.renderLighting(ctx);
     }
 
     // 8. Draw Floating Texts (on top for crisp readability)
     this.renderFloatingTexts(ctx);
+
+    // 9. Lightning Flash Overlay
+    this.renderLightningFlash(ctx);
 
     ctx.restore();
   }
@@ -1482,6 +1603,43 @@ export class GameEngine {
     }
   }
 
+  renderRain(ctx) {
+    if (!this.gameState) return;
+    const isRaining = this.gameState.weather === 'rainy' || this.gameState.weather === 'stormy';
+    if (!isRaining) return;
+
+    // 1. Draw water splash ripples on the ground
+    for (const rip of this.rainRipples) {
+      ctx.strokeStyle = `rgba(186, 230, 253, ${rip.alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(rip.x, rip.y, rip.r * 1.6, rip.r * 0.7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 2. Draw falling rain streaks
+    ctx.strokeStyle = 'rgba(215, 235, 255, 0.65)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const drop of this.rainParticles) {
+      ctx.moveTo(drop.x, drop.y);
+      ctx.lineTo(drop.x - drop.len * 0.18, drop.y + drop.len);
+    }
+    ctx.stroke();
+  }
+
+  renderLightningFlash(ctx) {
+    if (this.lightningFlashAlpha <= 0.01) return;
+    const worldW = (this.gameState?.farm?.width || 24) * TILE_SIZE;
+    const worldH = (this.gameState?.farm?.height || 18) * TILE_SIZE;
+    ctx.fillStyle = `rgba(255, 255, 255, ${this.lightningFlashAlpha})`;
+    if (this.location === 'house_interior') {
+      ctx.fillRect(0, 0, 192, 144);
+    } else {
+      ctx.fillRect(-60, -60, worldW + 120, worldH + 120);
+    }
+  }
+
   renderLighting(ctx) {
     if (!this.gameState || !this.gameState.time) return;
     const hour = this.gameState.time.hour !== undefined ? this.gameState.time.hour : 6;
@@ -1510,6 +1668,14 @@ export class GameEngine {
       ambientColor = '12, 18, 52';
       alpha = 0.58;
       isNight = true;
+    }
+
+    // Overcast rainy tint during daylight
+    const isRaining = this.gameState && (this.gameState.weather === 'rainy' || this.gameState.weather === 'stormy');
+    const isStormy = this.gameState && this.gameState.weather === 'stormy';
+    if (isRaining && !isNight) {
+      ambientColor = isStormy ? '26, 38, 58' : '38, 54, 72';
+      alpha = Math.max(alpha, isStormy ? 0.36 : 0.22);
     }
 
     if (alpha > 0.02) {
@@ -1652,12 +1818,22 @@ export class GameEngine {
 
     // Window with sky tint: sx: 1, sy: 48, sw: 14, sh: 16 at x: 116, y: 12
     const hour = this.gameState?.time?.hour !== undefined ? this.gameState.time.hour : 6;
+    const isRaining = this.gameState && (this.gameState.weather === 'rainy' || this.gameState.weather === 'stormy');
     let windowSky = '#7dd3fc'; // Daylight clear sky
-    if (hour < 6 || hour >= 20) windowSky = '#0f172a'; // Night
+    if (isRaining) windowSky = '#334155'; // Dark stormy slate sky through window
+    else if (hour < 6 || hour >= 20) windowSky = '#0f172a'; // Night
     else if (hour >= 6 && hour < 8) windowSky = '#fbcfe8'; // Dawn pink
     else if (hour >= 17 && hour < 20) windowSky = '#fdba74'; // Sunset orange
     ctx.fillStyle = windowSky;
     ctx.fillRect(118, 14, 10, 12);
+    if (isRaining) {
+      // Draw trickling raindrops on window glass
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.7)';
+      const t = Math.floor(Date.now() / 240);
+      ctx.fillRect(120, 14 + (t % 10), 1, 2);
+      ctx.fillRect(123, 14 + ((t + 4) % 10), 1, 2);
+      ctx.fillRect(126, 14 + ((t + 7) % 10), 1, 2);
+    }
     // Window frame
     ctx.drawImage(interior, 1, 48, 14, 16, 116, 12, 14, 16);
     // Curtains on both sides
@@ -1819,6 +1995,23 @@ export class GameEngine {
       ctx.fillRect(boxX, boxY, boxW, boxH);
       ctx.fillStyle = '#3b220c';
       ctx.fillText(promptText, 33, boxY + 9);
+    }
+
+    // Radio Weather Station prompt
+    if (this.isNearRadio) {
+      const promptText = "[E] Previsão do Tempo 📻";
+      const metrics = ctx.measureText(promptText);
+      const boxW = metrics.width + 10;
+      const boxH = 13;
+      const boxX = 62 - boxW / 2;
+      const boxY = 24 + bob;
+
+      ctx.fillStyle = '#543118';
+      ctx.fillRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+      ctx.fillStyle = '#f7e6c4';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.fillStyle = '#3b220c';
+      ctx.fillText(promptText, 62, boxY + 9);
     }
 
     // Exit prompt

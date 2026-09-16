@@ -366,3 +366,60 @@ test('FarmEngine: rustic storage chest deposit, withdraw, quick stacking and cap
   assert.strictEqual(stackWhenFull.success, true);
   assert.strictEqual(state.farm.chest.find(c => c.slot === 0).quantity, 3);
 });
+
+test('FarmEngine: dynamic weather system, tomorrow forecast, and rainy morning auto-watering', (t) => {
+  const state = farmEngine.getState();
+
+  // 1. Weather state integrity
+  assert.ok(['sunny', 'rainy', 'stormy'].includes(state.weather), 'Current weather is valid');
+  assert.ok(['sunny', 'rainy', 'stormy'].includes(state.tomorrowWeather), 'Tomorrow weather is valid');
+
+  // 2. Weather forecast API method
+  const forecast = farmEngine.getWeatherForecast();
+  assert.strictEqual(forecast.success, true);
+  assert.ok(forecast.today.description.length > 0);
+  assert.ok(forecast.tomorrow.description.length > 0);
+  assert.strictEqual(forecast.today.weather, state.weather);
+  assert.strictEqual(forecast.tomorrow.weather, state.tomorrowWeather);
+
+  // 3. Till tiles without water
+  const tileA = state.farm.tiles['3,3'];
+  const tileB = state.farm.tiles['3,4'];
+  tileA.state = 'tilled';
+  tileA.isWatered = false;
+  tileB.state = 'tilled';
+  tileB.isWatered = false;
+
+  // 4. Force tomorrow weather to 'rainy' and sleep
+  state.tomorrowWeather = 'rainy';
+  state.time.day = 10;
+  const sleepResRain = farmEngine.sleep();
+
+  assert.strictEqual(sleepResRain.success, true);
+  assert.strictEqual(state.weather, 'rainy', 'Weather advanced to rainy');
+  assert.ok(['sunny', 'rainy', 'stormy'].includes(state.tomorrowWeather));
+  assert.strictEqual(tileA.isWatered, true, 'Tile A was auto-watered by the morning rain');
+  assert.strictEqual(tileB.isWatered, true, 'Tile B was auto-watered by the morning rain');
+
+  // 5. Force tomorrow weather to 'stormy' and sleep
+  state.tomorrowWeather = 'stormy';
+  state.time.day = 11;
+  tileA.isWatered = false;
+  tileB.isWatered = false;
+  const sleepResStorm = farmEngine.sleep();
+
+  assert.strictEqual(sleepResStorm.success, true);
+  assert.strictEqual(state.weather, 'stormy', 'Weather advanced to stormy');
+  assert.strictEqual(tileA.isWatered, true, 'Tile A was auto-watered by the storm');
+  assert.strictEqual(tileB.isWatered, true, 'Tile B was auto-watered by the storm');
+
+  // 6. Force tomorrow weather to 'sunny' and sleep
+  state.tomorrowWeather = 'sunny';
+  state.time.day = 12;
+  const sleepResSun = farmEngine.sleep();
+
+  assert.strictEqual(sleepResSun.success, true);
+  assert.strictEqual(state.weather, 'sunny', 'Weather advanced to sunny');
+  assert.strictEqual(tileA.isWatered, false, 'Soil dries up naturally on a sunny morning');
+  assert.strictEqual(tileB.isWatered, false, 'Soil dries up naturally on a sunny morning');
+});

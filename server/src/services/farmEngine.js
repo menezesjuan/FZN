@@ -358,13 +358,76 @@ class FarmEngine {
       }
     }
 
+    // Weather transition
+    if (!this.state.tomorrowWeather) {
+      this.state.tomorrowWeather = this.rollNextWeather();
+    }
+    this.state.weather = this.state.tomorrowWeather;
+    this.state.tomorrowWeather = this.rollNextWeather();
+
+    // Rainy/Stormy day auto-watering: Nature waters all tilled tiles in the morning!
+    const isRainingToday = this.state.weather === 'rainy' || this.state.weather === 'stormy';
+    if (isRainingToday) {
+      for (const key in this.state.farm.tiles) {
+        const tile = this.state.farm.tiles[key];
+        if (tile.state === 'tilled') {
+          tile.isWatered = true;
+        }
+      }
+    }
+
     this.save();
+
+    const weatherSuffix = this.state.weather === 'stormy'
+      ? ' ⛈️ Uma tempestade está caindo no vale! O solo foi regado pela chuva!'
+      : (this.state.weather === 'rainy'
+        ? ' 🌧️ Um dia chuvoso começou! A chuva regou todas as suas lavouras!'
+        : ' ☀️ O sol está radiante!');
+
     return {
       success: true,
-      message: `Amanheceu o Dia ${this.state.time.day} da ${this.state.time.season}!`,
+      message: `Amanheceu o Dia ${this.state.time.day} da ${this.state.time.season}!${weatherSuffix}`,
       time: this.state.time,
       player: this.state.player,
+      weather: this.state.weather,
+      tomorrowWeather: this.state.tomorrowWeather,
       state: this.getState()
+    };
+  }
+
+  rollNextWeather() {
+    const roll = Math.random();
+    if (roll < 0.68) return 'sunny';
+    if (roll < 0.90) return 'rainy';
+    return 'stormy';
+  }
+
+  getWeatherForecast() {
+    const weather = this.state.weather || 'sunny';
+    const tomorrow = this.state.tomorrowWeather || 'sunny';
+
+    const descriptions = {
+      sunny: 'Céu limpo com sol radiante brilhando sobre o vale.',
+      rainy: 'Chuva mansa e fértil fertilizando toda a plantação.',
+      stormy: 'Tempestade de primavera com ventos fortes, relâmpagos e trovões!'
+    };
+
+    const tomorrowDescriptions = {
+      sunny: 'Amanhã teremos um lindo dia ensolarado, perfeito para cuidar da fazenda!',
+      rainy: 'Amanhã o dia será chuvoso! A natureza regará todas as suas plantações.',
+      stormy: 'Alerta meteorológico! Uma tempestade cairá sobre o vale amanhã com raios e chuva forte.'
+    };
+
+    return {
+      success: true,
+      today: {
+        weather,
+        description: descriptions[weather] || descriptions.sunny
+      },
+      tomorrow: {
+        weather: tomorrow,
+        description: tomorrowDescriptions[tomorrow] || tomorrowDescriptions.sunny
+      }
     };
   }
 

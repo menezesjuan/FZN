@@ -40,5 +40,7 @@ export const api = {
   withdrawFromChest: (chestSlot, quantity = 1, targetInventorySlot = null) => request('/chest/withdraw', { method: 'POST', body: JSON.stringify({ chestSlot, quantity, targetInventorySlot }) }),
   quickStackChest: () => request('/chest/quick-stack', { method: 'POST' }),
   devAdvanceTime: (seconds = 60) => request('/dev/advance-time', { method: 'POST', body: JSON.stringify({ seconds }) }),
-  devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' })
+  devRestoreEnergy: () => request('/dev/restore-energy', { method: 'POST' }),
+  getWeatherForecast: () => request('/weather/forecast'),
+  devSetWeather: (weather, tomorrowWeather) => request('/dev/set-weather', { method: 'POST', body: JSON.stringify({ weather, tomorrowWeather }) })
 };

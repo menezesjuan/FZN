@@ -93,6 +93,8 @@ function getDefaultGameState() {
       woodGathered: 0,
       milkProduced: 0
     },
+    weather: "sunny",
+    tomorrowWeather: "sunny",
     lastSaved: Date.now()
   };
 }
@@ -159,6 +161,12 @@ class StorageService {
         }
         if (!state.stats) {
           state.stats = {};
+        }
+        if (!state.weather) {
+          state.weather = 'sunny';
+        }
+        if (!state.tomorrowWeather) {
+          state.tomorrowWeather = 'sunny';
         }
         return state;
       }

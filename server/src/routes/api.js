@@ -235,4 +235,28 @@ router.post('/dev/restore-energy', (req, res) => {
   }
 });
 
+// Weather: Get forecast for today and tomorrow
+router.get('/weather/forecast', (req, res) => {
+  try {
+    const result = farmEngine.getWeatherForecast();
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// Dev helper: set weather
+router.post('/dev/set-weather', (req, res) => {
+  try {
+    const { weather, tomorrowWeather } = req.body;
+    const state = farmEngine.getState();
+    if (weather) state.weather = weather;
+    if (tomorrowWeather) state.tomorrowWeather = tomorrowWeather;
+    farmEngine.save();
+    res.json({ success: true, weather: state.weather, tomorrowWeather: state.tomorrowWeather });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
