@@ -25,6 +25,7 @@ export default function HUD({
   onOpenRanch,
   onOpenLicenses,
   onOpenContracts,
+  onOpenTutorial,
   onLogout,
   isIdleBotActive = true,
   onToggleIdleBot,
@@ -178,10 +179,21 @@ export default function HUD({
             </button>
           )}
 
+          {onOpenTutorial && (
+            <button 
+              className="pixel-btn" 
+              onClick={onOpenTutorial} 
+              title="Manual do Fazendeiro & Guia de Primeiros Passos"
+              style={{ background: '#6d28d9', borderColor: '#4c1d95', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+            >
+              📖 Guia
+            </button>
+          )}
+
           <button 
             className="pixel-btn" 
             onClick={onOpenShop} 
-            title="Loja de Sementes e Mantimentos (Atalho: B)"
+            title="Loja de Sementes e Mantimentos (Atalho: H)"
             style={{ background: '#3b7a15', borderColor: '#1e4506', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
           >
             🏪 Loja

@@ -78,7 +78,10 @@ class FarmService {
       ...farm,
       width: 24,
       height: 18,
-      tiles: farmTilesMap
+      tiles: farmTilesMap,
+      eggs: [
+        { id: "egg_live_1", x: 20, y: 4, quality: "normal" }
+      ]
     };
 
     const inventory = db.prepare('SELECT * FROM inventories WHERE user_id = ? AND quantity > 0').all(userId);
@@ -86,6 +89,14 @@ class FarmService {
     const animals = db.prepare('SELECT * FROM animals WHERE farm_id = ?').all(farm.id);
     const machines = db.prepare('SELECT * FROM machines WHERE farm_id = ?').all(farm.id);
     const wallet = db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(userId);
+
+    // Compute basic player stats for quests & onboarding
+    const harvestedCount = db.prepare("SELECT COUNT(*) as count FROM ledger WHERE user_id = ? AND type = 'CROP_HARVEST'").get(userId)?.count || 0;
+    const stats = {
+      cropsHarvested: harvestedCount,
+      eggsCollected: 0,
+      totalMoneyEarned: wallet?.coins ? Math.max(0, wallet.coins - 150) : 0
+    };
 
     // Format tools with current efficiency
     const formattedTools = tools.map(t => {
@@ -104,7 +115,8 @@ class FarmService {
       inventory,
       tools: formattedTools,
       animals,
-      machines
+      machines,
+      stats
     };
   }
 

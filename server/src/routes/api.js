@@ -13,6 +13,8 @@ const contractService = require('../services/contractService');
 const eventService = require('../services/eventService');
 const antifraudService = require('../services/antifraudService');
 const { economyConfig } = require('../config/economyConfig');
+const { db } = require('../db/database');
+const crypto = require('crypto');
 
 // Middleware for authentication
 function requireAuth(req, res, next) {
@@ -169,6 +171,36 @@ router.post('/animals/collect', requireAuth, (req, res) => {
     const { animalId } = req.body;
     const result = animalService.collectProduce(req.user.id, animalId);
     res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/farm/collect-egg', requireAuth, (req, res) => {
+  try {
+    const chicken = db.prepare("SELECT id FROM animals WHERE farm_id IN (SELECT id FROM farms WHERE user_id = ?) AND animal_type = 'chicken'").get(req.user.id);
+    if (chicken) {
+      const result = animalService.collectProduce(req.user.id, chicken.id);
+      return res.json({ success: true, message: 'Coletou 1x Ovo Caipira Fresco! 🥚', ...result });
+    }
+    // Fallback: direct inventory addition with tool check
+    durabilityService.consumeDurability(req.user.id, 'egg_basket', 1);
+    const existing = db.prepare('SELECT id FROM inventories WHERE user_id = ? AND item_id = ?').get(req.user.id, 'egg');
+    if (existing) {
+      db.prepare('UPDATE inventories SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+    } else {
+      db.prepare("INSERT INTO inventories (id, user_id, item_id, quantity, reserved, quality) VALUES (?, ?, 'egg', 1, 0, 'normal')").run('inv_' + crypto.randomUUID(), req.user.id);
+    }
+    res.json({ success: true, message: 'Coletou 1x Ovo Caipira Fresco com seu Cesto de Ovos! 🥚' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/farm/pet-animal', requireAuth, (req, res) => {
+  try {
+    db.prepare('UPDATE farms SET xp = xp + 15 WHERE user_id = ?').run(req.user.id);
+    res.json({ success: true, message: 'Você acariciou o animal com carinho! ❤️ (+15 XP)' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

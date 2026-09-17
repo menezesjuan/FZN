@@ -1,4 +1,4 @@
-﻿const API_BASE = '/api';
+const API_BASE = '/api';
 
 function getToken() {
   return localStorage.getItem('fzn_jwt_token') || '';
@@ -63,6 +63,8 @@ export const api = {
   buyAnimal: (animalType, name) => request('/animals/buy', { method: 'POST', body: JSON.stringify({ animalType, name }) }),
   feedAnimal: (animalId) => request('/animals/feed', { method: 'POST', body: JSON.stringify({ animalId }) }),
   collectProduce: (animalId) => request('/animals/collect', { method: 'POST', body: JSON.stringify({ animalId }) }),
+  collectEgg: (eggId) => request('/farm/collect-egg', { method: 'POST', body: JSON.stringify({ eggId }) }),
+  petAnimal: (animalId) => request('/farm/pet-animal', { method: 'POST', body: JSON.stringify({ animalId }) }),
 
   // Crafting & Machines
   buyMachine: (machineType) => request('/machines/buy', { method: 'POST', body: JSON.stringify({ machineType }) }),

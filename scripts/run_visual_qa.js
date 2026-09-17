@@ -38,7 +38,24 @@ async function runVisualQA() {
     });
     await new Promise(r => setTimeout(r, 1200));
 
-    // Turn off Idle Bot to show manual player focus
+    // If Tutorial Modal is open on start, capture it and close it
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const guiaBtn = btns.find(b => b.innerText.includes('Guia'));
+      if (guiaBtn) guiaBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 500));
+    await save(page, 'tutorial_modal');
+
+    // Close tutorial
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const closeBtn = btns.find(b => b.innerText.includes('Entendi') || b.innerText.includes('✕'));
+      if (closeBtn) closeBtn.click();
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    // Turn off Idle Bot to show manual player focus and quest tracker
     await page.keyboard.press('KeyZ');
     await new Promise(r => setTimeout(r, 400));
     await save(page, 'farm_view');

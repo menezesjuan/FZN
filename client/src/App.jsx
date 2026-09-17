@@ -12,6 +12,8 @@ import ShopModal from './components/ShopModal';
 import CraftingModal from './components/CraftingModal';
 import ContractsModal from './components/ContractsModal';
 import OfflineProgressModal from './components/OfflineProgressModal';
+import TutorialModal from './components/TutorialModal';
+import QuestTracker from './components/QuestTracker';
 import cropsConfig from './config/crops.json';
 
 export default function App() {
@@ -21,6 +23,7 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(0);
 
   // Modals
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [isContractsOpen, setIsContractsOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
@@ -88,6 +91,9 @@ export default function App() {
     setCurrentUser(user);
     setIsAuthOpen(false);
     showToast(`Bem-vindo à sua fazenda, ${user.username}! 🌾`, 'success');
+    if (!localStorage.getItem('fzn_tutorial_seen')) {
+      setIsTutorialOpen(true);
+    }
     if (offlineReport && offlineReport.elapsedMinutes > 5) {
       setOfflineData(offlineReport);
       setIsOfflineOpen(true);
@@ -108,6 +114,26 @@ export default function App() {
     setIsMuted(nextMuted);
     showToast(nextMuted ? "Áudio desativado 🔇" : "Áudio ativado 🔊", "info");
   }, [showToast]);
+
+  const handleCollectEgg = useCallback(async (eggId) => {
+    try {
+      const res = await api.collectEgg(eggId);
+      showToast(res.message || 'Ovo fresco recolhido no pasto! 🥚', 'success');
+      loadFarmState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [loadFarmState, showToast]);
+
+  const handlePetAnimal = useCallback(async (animalId) => {
+    try {
+      const res = await api.petAnimal(animalId);
+      showToast(res.message || 'Animal acariciado com carinho! ❤️ (+15 XP)', 'info');
+      loadFarmState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [loadFarmState, showToast]);
 
   const handleTileInteract = useCallback(async (tx, ty, selectedTool) => {
     if (!farmState) return;
@@ -205,12 +231,26 @@ export default function App() {
           onOpenRanch={() => setIsRanchOpen(true)}
           onOpenLicenses={() => setIsRepairShopOpen(true)}
           onOpenToolsShop={() => setIsRepairShopOpen(true)}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
           onLogout={handleLogout}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
           isIdleBotActive={isIdleBotActive}
           onToggleIdleBot={() => setIsIdleBotActive(!isIdleBotActive)}
           toolsOwned={farmState?.tools || []}
+        />
+      )}
+
+      {/* Interactive Starter Quest Tracker */}
+      {farmState && (
+        <QuestTracker
+          gameState={{
+            player: playerUi,
+            farm: farmState.farm,
+            stats: farmState.stats || {},
+            isIdleBotActive
+          }}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
         />
       )}
 
@@ -242,6 +282,8 @@ export default function App() {
           onSelectSlot={setSelectedSlot}
           isIdleBotActive={isIdleBotActive}
           onTileInteract={handleTileInteract}
+          onCollectEgg={handleCollectEgg}
+          onPetAnimal={handlePetAnimal}
           onShowToast={showToast}
         />
       )}
@@ -302,6 +344,14 @@ export default function App() {
           onAcknowledge={() => setIsOfflineOpen(false)}
         />
       )}
+
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => {
+          setIsTutorialOpen(false);
+          localStorage.setItem('fzn_tutorial_seen', 'true');
+        }}
+      />
     </div>
   );
 }
