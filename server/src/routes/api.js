@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const authService = require('../services/authService');
 const farmService = require('../services/farmService');
@@ -9,6 +9,9 @@ const npcShopService = require('../services/npcShopService');
 const marketEngine = require('../services/marketEngine');
 const ledgerService = require('../services/ledgerService');
 const offlineProgressService = require('../services/offlineProgressService');
+const contractService = require('../services/contractService');
+const eventService = require('../services/eventService');
+const antifraudService = require('../services/antifraudService');
 const { economyConfig } = require('../config/economyConfig');
 
 // Middleware for authentication
@@ -232,9 +235,27 @@ router.post('/shop/sell-item', requireAuth, (req, res) => {
 
 router.post('/market/order', requireAuth, (req, res) => {
   try {
+    antifraudService.checkActionRate(req.user.id, 15);
+    const idemKey = req.headers['idempotency-key'];
+    if (idemKey) {
+      const cached = antifraudService.checkIdempotency(idemKey);
+      if (cached) return res.json(cached);
+    }
+
     const { type, itemId, unitPrice, quantity } = req.body;
+    const cropDef = economyConfig.crops[itemId];
+    if (cropDef) {
+      antifraudService.validateOrderPrice(req.user.id, itemId, unitPrice, cropDef.sellPrice);
+    }
+
     const order = marketEngine.createOrder(req.user.id, type, itemId, parseFloat(unitPrice), parseInt(quantity, 10));
-    res.json({ order, message: `Ordem de ${type} postada com sucesso!` });
+    const responsePayload = { order, message: `Ordem de ${type} postada com sucesso!` };
+
+    if (idemKey) {
+      antifraudService.saveIdempotency(idemKey, responsePayload);
+    }
+
+    res.json(responsePayload);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -264,6 +285,40 @@ router.get('/ledger/history', requireAuth, (req, res) => {
     const history = ledgerService.getLedgerHistory(req.user.id);
     const wallet = ledgerService.getWallet(req.user.id);
     res.json({ wallet, history });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Contracts & Events
+router.get('/events/current', (req, res) => {
+  res.json({ event: eventService.getCurrentEvent() });
+});
+
+router.get('/contracts', requireAuth, (req, res) => {
+  try {
+    const contracts = contractService.getContracts(req.user.id);
+    res.json({ contracts });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/contracts/accept', requireAuth, (req, res) => {
+  try {
+    const { contractId } = req.body;
+    const result = contractService.acceptContract(req.user.id, contractId);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/contracts/deliver', requireAuth, (req, res) => {
+  try {
+    const { contractId } = req.body;
+    const result = contractService.deliverContract(req.user.id, contractId);
+    res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

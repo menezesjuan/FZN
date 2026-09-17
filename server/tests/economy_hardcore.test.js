@@ -112,7 +112,7 @@ test('Livestock: buyAnimal acquires chicken/cow respecting tier', (t) => {
   const res = farmEngine.buyAnimal('animal_chicken', 'Pintinho');
   assert.strictEqual(res.success, true);
   assert.strictEqual(state.player.money, 1650);
-  const bought = state.farm.animals.find(a => a.name === 'Pintinho');
+  const bought = state.farm.animals.find(a => a.id === res.animal.id);
   assert.ok(bought);
   assert.strictEqual(bought.isAlive, true);
   assert.strictEqual(bought.harvestsRemaining, 20);

@@ -23,6 +23,7 @@ export default function HUD({
   onOpenToolsShop,
   onOpenRanch,
   onOpenLicenses,
+  onOpenContracts,
   onLogout,
   isIdleBotActive = true,
   onToggleIdleBot,
@@ -222,6 +223,17 @@ export default function HUD({
             >
               🏪 Loja
             </button>
+
+            {onOpenContracts && (
+              <button 
+                className="pixel-btn" 
+                onClick={onOpenContracts} 
+                title="Mural de Contratos Comerciais e Eventos"
+                style={{ background: '#5d4037', borderColor: '#3e2723', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+              >
+                📜 Contratos
+              </button>
+            )}
 
             <button 
               className="pixel-btn" 

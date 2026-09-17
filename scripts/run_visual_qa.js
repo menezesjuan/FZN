@@ -1,4 +1,4 @@
-﻿const puppeteer = require('../server/node_modules/puppeteer');
+const puppeteer = require('../server/node_modules/puppeteer');
 const path = require('path');
 const fs = require('fs');
 
@@ -96,6 +96,22 @@ async function runVisualQA() {
     });
     await new Promise(r => setTimeout(r, 1000));
     await save(page, 'crafting_modal');
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const btn = btns.find(b => b.innerText.includes('✕'));
+      if (btn) btn.click();
+    });
+    await new Promise(r => setTimeout(r, 500));
+
+    console.log('[Visual QA] 7. Opening Contracts Modal...');
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const btn = btns.find(b => b.innerText.includes('Contratos'));
+      if (btn) btn.click();
+    });
+    await new Promise(r => setTimeout(r, 1000));
+    await save(page, 'contracts_modal');
 
     console.log('[Visual QA] ALL visual QA stages successfully captured and verified!');
   } catch (err) {

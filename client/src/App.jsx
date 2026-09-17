@@ -10,6 +10,7 @@ import RepairShopModal from './components/RepairShopModal';
 import RanchModal from './components/RanchModal';
 import ShopModal from './components/ShopModal';
 import CraftingModal from './components/CraftingModal';
+import ContractsModal from './components/ContractsModal';
 import OfflineProgressModal from './components/OfflineProgressModal';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
 
   // Modals
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isContractsOpen, setIsContractsOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [isRanchOpen, setIsRanchOpen] = useState(false);
   const [isRepairShopOpen, setIsRepairShopOpen] = useState(false);
@@ -153,6 +155,7 @@ export default function App() {
           onSelectSlot={setSelectedSlot}
           onOpenInventory={() => setIsShopOpen(true)}
           onOpenShop={() => setIsShopOpen(true)}
+          onOpenContracts={() => setIsContractsOpen(true)}
           onOpenManagement={() => setIsCraftingOpen(true)}
           onOpenMarket={() => setIsMarketOpen(true)}
           onOpenRanch={() => setIsRanchOpen(true)}
@@ -256,6 +259,13 @@ export default function App() {
         onClose={() => setIsCraftingOpen(false)}
         machines={farmState?.machines}
         farm={farmState?.farm}
+        onRefreshState={loadFarmState}
+        showToast={showToast}
+      />
+
+      <ContractsModal
+        isOpen={isContractsOpen}
+        onClose={() => setIsContractsOpen(false)}
         onRefreshState={loadFarmState}
         showToast={showToast}
       />
