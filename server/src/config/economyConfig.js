@@ -1,4 +1,4 @@
-﻿const economyConfig = {
+const economyConfig = {
   currency: {
     startingCoins: 150.0,
     startingStorage: 100
@@ -187,6 +187,30 @@
       totalStages: 5,
       yield: 2,
       assetCrop: 'leek'
+    },
+    berry: {
+      id: 'berry',
+      name: 'Amoras Silvestres',
+      seedId: 'seed_berry',
+      seedName: 'Muda de Amora',
+      seedPrice: 28,
+      sellPrice: 48,
+      growthTimeSec: 20,
+      totalStages: 5,
+      yield: 3,
+      assetCrop: 'berry'
+    },
+    carrot: {
+      id: 'carrot',
+      name: 'Cenoura Fresca',
+      seedId: 'seed_carrot',
+      seedName: 'Semente de Cenoura',
+      seedPrice: 14,
+      sellPrice: 24,
+      growthTimeSec: 15,
+      totalStages: 5,
+      yield: 2,
+      assetCrop: 'carrot'
     }
   },
   animals: {

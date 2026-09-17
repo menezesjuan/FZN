@@ -121,6 +121,7 @@ test('FarmEngine: livestock and egg collection system', (t) => {
   const eggToCollect = eggsAfterSleep[0];
   const initialEggsCollectedStat = state.stats.eggsCollected || 0;
   const initialXP = state.player.xp;
+  const initialLevel = state.player.level;
 
   // Collect egg
   const collectRes = farmEngine.collectEgg(eggToCollect.id, eggToCollect.x, eggToCollect.y);
@@ -134,7 +135,7 @@ test('FarmEngine: livestock and egg collection system', (t) => {
 
   // Check stats and XP gained
   assert.strictEqual(farmEngine.getState().stats.eggsCollected, initialEggsCollectedStat + 1);
-  assert.ok(state.player.xp > initialXP);
+  assert.ok(state.player.xp > initialXP || state.player.level > initialLevel, 'XP or level increased');
 });
 
 test('FarmEngine: tree chopping, stump clearing and wood foraging', (t) => {

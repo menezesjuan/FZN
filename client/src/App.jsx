@@ -12,6 +12,7 @@ import ShopModal from './components/ShopModal';
 import CraftingModal from './components/CraftingModal';
 import ContractsModal from './components/ContractsModal';
 import OfflineProgressModal from './components/OfflineProgressModal';
+import cropsConfig from './config/crops.json';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -108,6 +109,49 @@ export default function App() {
     showToast(nextMuted ? "Áudio desativado 🔇" : "Áudio ativado 🔊", "info");
   }, [showToast]);
 
+  const handleTileInteract = useCallback(async (tx, ty, selectedTool) => {
+    if (!farmState) return;
+    const tile = farmState.tiles?.find(t => t.tile_x === tx && t.tile_y === ty);
+    if (!tile) return;
+
+    try {
+      if (tile.state === 'READY') {
+        const res = await api.harvestCrop(tile.id);
+        showToast(res.message || 'Colheita realizada com sucesso! 🌾', 'success');
+        loadFarmState();
+        return;
+      }
+
+      const toolId = selectedTool?.id || '';
+      if (toolId.startsWith('seed_') || toolId.startsWith('seeds_')) {
+        if (tile.state === 'EMPTY') {
+          await api.plantCrop(tile.id, toolId);
+          showToast(`Semente plantada no canteiro (${tx}, ${ty})! 🌱`, 'success');
+          loadFarmState();
+        }
+      } else if (toolId === 'tool_can' || toolId === 'watering_can') {
+        await api.waterPlot(tile.id);
+        showToast(`Canteiro (${tx}, ${ty}) irrigado! 💧`, 'info');
+        loadFarmState();
+      } else if (tile.state === 'EMPTY') {
+        // Find any seed in inventory to plant
+        const seedItem = (farmState.inventory || []).find(i => 
+          (i.item_id?.startsWith('seed_') || i.item_id?.startsWith('seeds_') || i.id?.startsWith('seed_')) && i.quantity > 0
+        );
+        if (seedItem) {
+          const sId = seedItem.item_id || seedItem.id;
+          await api.plantCrop(tile.id, sId);
+          showToast(`Plantado ${sId.replace(/seeds?_/, '')}! 🌱`, 'success');
+          loadFarmState();
+        } else {
+          showToast('Equipe uma semente ou Regador para interagir!', 'info');
+        }
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, [farmState, loadFarmState, showToast]);
+
   // Construct UI player object for compatibility with canvas & HUD
   const playerUi = farmState ? {
     id: farmState.farm.user_id,
@@ -144,16 +188,16 @@ export default function App() {
         <AuthModal onAuthenticated={handleAuthenticated} />
       )}
 
-      {/* Main HUD */}
-      {playerUi && (
+      {/* Top Header & Bottom Hotbar HUD */}
+      {farmState && (
         <HUD
           player={playerUi}
-          time={{ season: 'Primavera', day: 1, hour: 10, minute: 0 }}
-          weather="sunny"
           inventory={inventoryUi}
+          hotbar={inventoryUi}
           selectedSlot={selectedSlot}
           onSelectSlot={setSelectedSlot}
-          onOpenInventory={() => setIsShopOpen(true)}
+          weather="sunny"
+          time={{ season: 'Primavera', day: 1, year: 1 }}
           onOpenShop={() => setIsShopOpen(true)}
           onOpenContracts={() => setIsContractsOpen(true)}
           onOpenManagement={() => setIsCraftingOpen(true)}
@@ -177,47 +221,28 @@ export default function App() {
             player: playerUi,
             farm: {
               ...farmState.farm,
-              plots: farmState.tiles.map((t, idx) => ({
-                id: t.id,
-                plotIndex: idx,
-                cropId: t.crop_id,
-                state: t.state,
-                isTilled: true,
-                isWatered: t.watered === 1,
-                growthProgress: t.growth_stage / 4,
-                readyHarvest: t.state === 'READY'
-              }))
+              width: farmState.farm.width || 24,
+              height: farmState.farm.height || 18,
+              tiles: farmState.farm.tiles || {},
+              animals: farmState.animals || []
             },
             inventory: inventoryUi,
+            toolsOwned: farmState.tools?.map(t => t.item_id || t.id) || ['tool_hoe', 'tool_can', 'tool_scythe'],
             weather: 'sunny',
-            time: { season: 'Primavera', day: 1 }
+            time: { season: 'Primavera', day: 1, year: 1, hour: 8, minute: 0 },
+            cropsConfig: cropsConfig,
+            idlePlots: [
+              { id: 1, name: "Talhão Alfa", status: "AVAILABLE", cropId: null, bounds: { x1: 3, y1: 4, x2: 5, y2: 6 } },
+              { id: 2, name: "Talhão Beta", status: "AVAILABLE", cropId: null, bounds: { x1: 7, y1: 4, x2: 9, y2: 6 } },
+              { id: 3, name: "Talhão Gama", status: "AVAILABLE", cropId: null, bounds: { x1: 3, y1: 8, x2: 5, y2: 10 } },
+              { id: 4, name: "Talhão Delta", status: "AVAILABLE", cropId: null, bounds: { x1: 7, y1: 8, x2: 9, y2: 10 } }
+            ]
           }}
           selectedSlot={selectedSlot}
           onSelectSlot={setSelectedSlot}
           isIdleBotActive={isIdleBotActive}
-          onPlotInteraction={async (tileId, action) => {
-            try {
-              if (action === 'plant') {
-                // Find first available seed in inventory
-                const seedItem = inventoryUi.find(i => i.id.startsWith('seed_') && i.quantity > 0);
-                if (!seedItem) {
-                  showToast('Você não possui sementes no inventário! Compre na Loja (H).', 'error');
-                  return;
-                }
-                await api.plantCrop(tileId, seedItem.id);
-                showToast(`Plantado ${seedItem.id.replace('seed_', '')}! 🌱`, 'success');
-              } else if (action === 'water') {
-                await api.waterPlot(tileId);
-                showToast('Canteiro regado! 💧', 'info');
-              } else if (action === 'harvest') {
-                const res = await api.harvestCrop(tileId);
-                showToast(res.message, 'success');
-              }
-              loadFarmState();
-            } catch (err) {
-              showToast(err.message, 'error');
-            }
-          }}
+          onTileInteract={handleTileInteract}
+          onShowToast={showToast}
         />
       )}
 

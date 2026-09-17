@@ -85,8 +85,8 @@ export class GameEngine {
 
     // Player local simulation
     this.player = {
-      x: 10 * TILE_SIZE,
-      y: 8 * TILE_SIZE,
+      x: 5 * TILE_SIZE,
+      y: 11 * TILE_SIZE,
       speed: 105, // pixels per second
       direction: 'down',
       isMoving: false,
@@ -97,14 +97,14 @@ export class GameEngine {
       hitbox: { offsetX: 10, offsetY: 22, width: 12, height: 8 }
     };
 
-    // World Static Obstacles & Decor
+    // World Static Obstacles & Decor (Moved to perimeter to leave field 100% open)
     this.trees = [
-      { id: 'tree_1', x: 2 * TILE_SIZE, y: 2 * TILE_SIZE, type: 'maple' },
+      { id: 'tree_1', x: 1 * TILE_SIZE, y: 1 * TILE_SIZE, type: 'maple' },
       { id: 'tree_2', x: 5 * TILE_SIZE, y: 1 * TILE_SIZE, type: 'maple' },
-      { id: 'tree_3', x: 1 * TILE_SIZE, y: 8 * TILE_SIZE, type: 'maple' },
-      { id: 'tree_4', x: 2 * TILE_SIZE, y: 13 * TILE_SIZE, type: 'maple' },
-      { id: 'tree_5', x: 19 * TILE_SIZE, y: 13 * TILE_SIZE, type: 'maple' },
-      { id: 'tree_6', x: 21 * TILE_SIZE, y: 7 * TILE_SIZE, type: 'maple' }
+      { id: 'tree_3', x: 1 * TILE_SIZE, y: 6 * TILE_SIZE, type: 'maple' },
+      { id: 'tree_4', x: 1 * TILE_SIZE, y: 17 * TILE_SIZE, type: 'maple' },
+      { id: 'tree_5', x: 22 * TILE_SIZE, y: 14 * TILE_SIZE, type: 'maple' },
+      { id: 'tree_6', x: 22 * TILE_SIZE, y: 6 * TILE_SIZE, type: 'maple' }
     ];
 
     this.house = {
@@ -177,7 +177,53 @@ export class GameEngine {
       { key: 'chicken_red', url: '/assets/Farm%20Animals/Chicken%20Red.png' },
       { key: 'cow_female', url: '/assets/Farm%20Animals/Female%20Cow%20Brown.png' },
       { key: 'cow_male', url: '/assets/Farm%20Animals/Male%20Cow%20Brown.png' },
-      { key: 'interior', url: '/assets/Objects/Interior.png' }
+      { key: 'interior', url: '/assets/Objects/Interior.png' },
+
+      // All Fruit & Crop Subfolder Assets (Growth Spritesheets & High-Res Icons)
+      { key: 'crop_berry', url: '/assets/crops/berry/growth_basic/berry_16x16_7frames.png' },
+      { key: 'icon_berry', url: '/assets/crops/berry/icon/berry_icon_16x16.png' },
+      { key: 'crop_strawberry', url: '/assets/crops/berry/growth_basic/berry_16x16_7frames.png' },
+      { key: 'icon_strawberry', url: '/assets/crops/berry/icon/berry_icon_16x16.png' },
+      { key: 'crop_blueberry', url: '/assets/crops/berry/growth_basic/berry_16x16_7frames.png' },
+      { key: 'icon_blueberry', url: '/assets/crops/berry/icon/berry_icon_16x16.png' },
+      { key: 'crop_grape', url: '/assets/crops/grape/growth_basic/grape_18x32_7frames.png' },
+      { key: 'icon_grape', url: '/assets/crops/grape/icon/grape_icon_16x16_2frames.png' },
+      { key: 'crop_tomato', url: '/assets/crops/tomato/growth_basic/tomato_16x32_23frames.png' },
+      { key: 'icon_tomato', url: '/assets/crops/tomato/icon/tomato_icon_16x16_4frames.png' },
+      { key: 'crop_wheat', url: '/assets/crops/wheat/growth_basic/wheat_18x32_8frames.png' },
+      { key: 'icon_wheat', url: '/assets/crops/wheat/icon/wheat_icon_16x16_9frames.png' },
+      { key: 'crop_corn', url: '/assets/crops/corn/growth_basic/corn_16x32_8frames.png' },
+      { key: 'icon_corn', url: '/assets/crops/corn/icon/corn_icon_16x16_2frames.png' },
+      { key: 'crop_carrot', url: '/assets/crops/carrot/growth_basic/carrot_16x16_7frames.png' },
+      { key: 'icon_carrot', url: '/assets/crops/carrot/icon/carrot_icon_16x16_2frames.png' },
+      { key: 'crop_radish', url: '/assets/crops/radish/growth_basic/radish_16x16_7frames.png' },
+      { key: 'icon_radish', url: '/assets/crops/radish/icon/radish_icon_16x16_2frames.png' },
+      { key: 'crop_potato', url: '/assets/crops/potato/growth_basic/potato_16x32_7frames.png' },
+      { key: 'icon_potato', url: '/assets/crops/potato/icon/potato_icon_16x16.png' },
+      { key: 'crop_pumpkin', url: '/assets/crops/pumpkin/growth_basic/pumpkin_16x16_7frames.png' },
+      { key: 'icon_pumpkin', url: '/assets/crops/pumpkin/icon/pumpkin_icon_16x16_3frames.png' },
+      { key: 'crop_melon', url: '/assets/crops/pumpkin/growth_basic/pumpkin_16x16_7frames.png' },
+      { key: 'icon_melon', url: '/assets/crops/pumpkin/icon/pumpkin_icon_16x16_3frames.png' },
+      { key: 'crop_onion', url: '/assets/crops/onion/growth_basic/onion_16x32_7frames.png' },
+      { key: 'icon_onion', url: '/assets/crops/onion/icon/onion_icon_16x16.png' },
+      { key: 'crop_leek', url: '/assets/crops/leek/growth_basic/leek_16x32_7frames.png' },
+      { key: 'icon_leek', url: '/assets/crops/leek/icon/leek_icon_16x16.png' },
+      { key: 'crop_lettuce', url: '/assets/crops/lettuce/growth_basic/lettuce_16x16_7frames.png' },
+      { key: 'icon_lettuce', url: '/assets/crops/lettuce/icon/lettuce_icon_16x16.png' },
+      { key: 'crop_cauliflower', url: '/assets/crops/cauliflower/growth_basic/cauliflower_16x16_7frames.png' },
+      { key: 'icon_cauliflower', url: '/assets/crops/cauliflower/icon/cauliflower_icon_16x16.png' },
+      { key: 'crop_beetroot', url: '/assets/crops/beetroot/growth_basic/beetroot_16x16_7frames.png' },
+      { key: 'icon_beetroot', url: '/assets/crops/beetroot/icon/beetroot_icon_16x16.png' },
+      { key: 'crop_broccoli', url: '/assets/crops/broccoli/growth_basic/broccoli_16x32_7frames.png' },
+      { key: 'icon_broccoli', url: '/assets/crops/broccoli/icon/broccoli_icon_16x16.png' },
+      { key: 'crop_bamboo', url: '/assets/crops/bamboo/growth_basic/bamboo_16x32_7frames.png' },
+      { key: 'icon_bamboo', url: '/assets/crops/bamboo/icon/bamboo_icon_16x16_2frames.png' },
+      { key: 'crop_celery', url: '/assets/crops/celery/growth_basic/celery_16x32_7frames.png' },
+      { key: 'icon_celery', url: '/assets/crops/celery/icon/celery_icon_16x16.png' },
+      { key: 'crop_eggplant', url: '/assets/crops/eggplant/growth_basic/eggplant_16x32_7frames.png' },
+      { key: 'icon_eggplant', url: '/assets/crops/eggplant/icon/eggplant_icon_16x16.png' },
+      { key: 'crop_pepper', url: '/assets/crops/pepper/growth_basic/pepper_16x32_11frames.png' },
+      { key: 'icon_pepper', url: '/assets/crops/pepper/icon/pepper_icon_16x16_2frames.png' }
     ];
 
     const promises = assetList.map(({ key, url }) => {
@@ -1008,27 +1054,11 @@ export class GameEngine {
       this.isNearInteriorExit = Math.hypot(96 - playerCenterX, 126 - playerCenterY) < 24;
       this.isNearRadio = Math.hypot(62 - playerCenterX, 32 - playerCenterY) < 28;
     } else {
-      // Outdoor farm camera & clamping
+      // Outdoor farm camera: smooth, fluid centering on the player (Stardew Valley style)
       const targetCamX = this.player.x + 16;
       const targetCamY = this.player.y + 16;
-      this.camera.x += (targetCamX - this.camera.x) * (dt * 7);
-      this.camera.y += (targetCamY - this.camera.y) * (dt * 7);
-
-      const worldWidth = this.gameState.farm.width * TILE_SIZE;
-      const worldHeight = this.gameState.farm.height * TILE_SIZE;
-      const halfViewW = (this.canvas.width / 2) / ZOOM;
-      const halfViewH = (this.canvas.height / 2) / ZOOM;
-
-      if (worldWidth > halfViewW * 2) {
-        this.camera.x = Math.max(halfViewW, Math.min(worldWidth - halfViewW, this.camera.x));
-      } else {
-        this.camera.x = worldWidth / 2;
-      }
-      if (worldHeight > halfViewH * 2) {
-        this.camera.y = Math.max(halfViewH, Math.min(worldHeight - halfViewH, this.camera.y));
-      } else {
-        this.camera.y = worldHeight / 2;
-      }
+      this.camera.x += (targetCamX - this.camera.x) * Math.min(1, dt * 8);
+      this.camera.y += (targetCamY - this.camera.y) * Math.min(1, dt * 8);
 
       // Outdoor door proximity
       const doorX = this.house.x + 60;
@@ -1582,13 +1612,13 @@ export class GameEngine {
     const farmW = this.gameState?.farm?.width || 24;
     const farmH = this.gameState?.farm?.height || 18;
 
-    // Outer margin expansion (-6 to farmW + 6, -5 to farmH + 5)
-    const minX = -6;
-    const maxX = farmW + 6;
-    const minY = -5;
-    const maxY = farmH + 5;
+    // Outer margin expansion to fill widescreen displays without any dark void
+    const minX = -22;
+    const maxX = farmW + 22;
+    const minY = -18;
+    const maxY = farmH + 18;
 
-    // 1. Draw outer lush grass backdrop so no empty blank/void background is visible
+    // 1. Draw outer lush grass backdrop across entire viewport
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
         // Skip inside main farm boundaries (drawn in renderFarmGround)
@@ -1609,21 +1639,21 @@ export class GameEngine {
     // 2. Dense boundary forest trees (Stardew Valley mountain & forest borders)
     if (treeImg) {
       // Top northern forest border
-      for (let x = minX + 1; x <= maxX - 1; x += 2) {
+      for (let x = -2; x <= farmW + 2; x += 2) {
         ctx.drawImage(treeImg, 96, 0, 32, 48, x * TILE_SIZE - 8, -48, 32, 48);
         ctx.drawImage(treeImg, 96, 0, 32, 48, (x + 1) * TILE_SIZE - 8, -32, 32, 48);
       }
       // Western forest border
-      for (let y = 0; y <= farmH + 2; y += 2) {
+      for (let y = -2; y <= farmH + 2; y += 2) {
         ctx.drawImage(treeImg, 96, 0, 32, 48, -48, y * TILE_SIZE - 20, 32, 48);
         ctx.drawImage(treeImg, 96, 0, 32, 48, -32, (y + 1) * TILE_SIZE - 20, 32, 48);
       }
       // Southern forest border
-      for (let x = minX + 1; x <= maxX - 1; x += 2) {
+      for (let x = -2; x <= farmW + 2; x += 2) {
         ctx.drawImage(treeImg, 96, 0, 32, 48, x * TILE_SIZE - 8, farmH * TILE_SIZE + 4, 32, 48);
       }
       // Eastern forest border behind pastures
-      for (let y = 0; y <= farmH + 2; y += 2) {
+      for (let y = -2; y <= farmH + 2; y += 2) {
         ctx.drawImage(treeImg, 96, 0, 32, 48, farmW * TILE_SIZE + 8, y * TILE_SIZE - 16, 32, 48);
         ctx.drawImage(treeImg, 96, 0, 32, 48, farmW * TILE_SIZE + 24, (y + 1) * TILE_SIZE - 16, 32, 48);
       }
@@ -2031,7 +2061,7 @@ export class GameEngine {
       });
     }
 
-    // 4. Crops
+    // 4. Crops (Rendered using dedicated assets from assets/crops/ subfolders)
     const cropsImg = this.images.crops;
     const farm = this.gameState.farm;
     const cropsConfig = this.gameState.cropsConfig || {};
@@ -2044,18 +2074,28 @@ export class GameEngine {
 
         const crop = tile.crop;
         const cropDef = cropsConfig[crop.id] || {};
-        const rowIndex = cropDef.rowIndex !== undefined ? cropDef.rowIndex : 0;
-        const stage = Math.min(crop.stage || 0, (cropDef.stages || 6) - 1);
+        const maxStages = cropDef.stages || 6;
+        const stage = Math.min(crop.stage || 0, maxStages - 1);
+
+        // Check dedicated subfolder growth image
+        const specificCropImg = this.images['crop_' + crop.id];
+        const frameW = cropDef.frameWidth || 16;
+        const frameH = cropDef.frameHeight || 32;
+        const totalFrames = cropDef.totalFrames || maxStages;
+        const frameIdx = Math.min(totalFrames - 1, Math.floor((stage / Math.max(1, maxStages - 1)) * (totalFrames - 1)));
 
         const destX = x * TILE_SIZE;
-        const destY = y * TILE_SIZE - 16;
+        const destY = frameH === 16 ? y * TILE_SIZE : y * TILE_SIZE - 16;
         const sortY = y * TILE_SIZE + 14;
 
         entities.push({
           sortY,
           render: () => {
-            if (cropsImg) {
-              ctx.drawImage(cropsImg, stage * 16, rowIndex * 32, 16, 32, destX, destY, 16, 32);
+            if (specificCropImg) {
+              ctx.drawImage(specificCropImg, frameIdx * frameW, 0, frameW, frameH, destX, destY, frameW, frameH);
+            } else if (cropsImg) {
+              const rowIndex = cropDef.rowIndex !== undefined ? cropDef.rowIndex : 0;
+              ctx.drawImage(cropsImg, stage * 16, (rowIndex % 4) * 32, 16, 32, destX, destY, 16, 32);
             }
 
             // Ready indicator sparkle
@@ -2084,9 +2124,11 @@ export class GameEngine {
         const isAvailable = plot.status === 'AVAILABLE';
 
         const cropDef = cropsConfig[plot.cropId] || {};
-        const rowIndex = cropDef.rowIndex !== undefined ? cropDef.rowIndex : 0;
-        const sourceRow = rowIndex % 4; // Safely mapped to 4 rows of Spring Crops.png
         const maxStages = cropDef.stages || 6;
+        const specificPlotCropImg = this.images['crop_' + plot.cropId];
+        const plotFrameW = cropDef.frameWidth || 16;
+        const plotFrameH = cropDef.frameHeight || 32;
+        const plotTotalFrames = cropDef.totalFrames || maxStages;
 
         let stage = maxStages - 1;
         let progressPct = 1;
@@ -2097,36 +2139,28 @@ export class GameEngine {
           stage = Math.min(maxStages - 1, Math.floor(progressPct * maxStages));
           remainingSeconds = Math.max(0, Math.ceil((plot.completedAt - now) / 1000));
         }
-
-        // Color filter for seasonal crops outside the base 4 rows
-        let cropFilter = 'none';
-        if (plot.cropId === 'blueberry') {
-          cropFilter = 'hue-rotate(180deg) saturate(1.6) brightness(1.05)';
-        } else if (plot.cropId === 'melon') {
-          cropFilter = 'hue-rotate(85deg) saturate(1.4) brightness(1.1)';
-        } else if (plot.cropId === 'pumpkin') {
-          cropFilter = 'hue-rotate(330deg) saturate(1.9) brightness(1.15)';
-        } else if (plot.cropId === 'grape') {
-          cropFilter = 'hue-rotate(240deg) saturate(1.7) brightness(0.95)';
-        }
+        const plotFrameIdx = Math.min(plotTotalFrames - 1, Math.floor((stage / Math.max(1, maxStages - 1)) * (plotTotalFrames - 1)));
 
         // Draw Crops across the 3x3 bed (skipping center sprinkler)
-        if (cropsImg && (isRunning || isReady)) {
+        if (isRunning || isReady) {
           for (let ty = y1; ty <= y2; ty++) {
             for (let tx = x1; tx <= x2; tx++) {
               // Leave center space clear for the brass/gold Quality Sprinkler
               if (tx === x1 + 1 && ty === y1 + 1) continue;
 
               const destX = tx * TILE_SIZE;
-              const destY = ty * TILE_SIZE - 16;
+              const destY = plotFrameH === 16 ? ty * TILE_SIZE : ty * TILE_SIZE - 16;
               const sortY = ty * TILE_SIZE + 14;
 
               entities.push({
                 sortY,
                 render: () => {
-                  if (cropFilter !== 'none') ctx.filter = cropFilter;
-                  ctx.drawImage(cropsImg, stage * 16, sourceRow * 32, 16, 32, destX, destY, 16, 32);
-                  if (cropFilter !== 'none') ctx.filter = 'none';
+                  if (specificPlotCropImg) {
+                    ctx.drawImage(specificPlotCropImg, plotFrameIdx * plotFrameW, 0, plotFrameW, plotFrameH, destX, destY, plotFrameW, plotFrameH);
+                  } else if (cropsImg) {
+                    const sourceRow = (cropDef.rowIndex || 0) % 4;
+                    ctx.drawImage(cropsImg, stage * 16, sourceRow * 32, 16, 32, destX, destY, 16, 32);
+                  }
                 }
               });
             }

@@ -1,4 +1,4 @@
-﻿const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { db } = require('../db/database');
@@ -57,28 +57,46 @@ class AuthService {
         VALUES (?, ?, ?, 1, 0, ?, ?, ?)
       `).run(farmId, userId, `Fazenda de ${cleanUsername}`, economyConfig.currency.startingStorage, economyConfig.offline.defaultLimitHours, now);
 
-      // 4. Create Initial Farm Plots (4 plots in 2x2 cluster, matching the visual layout)
-      const plotCoords = [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: 1 }
-      ];
+      // 4. Create Initial Farm Plots (32 plots in generous 8x4 field for ample planting at x:2..9, y:12..15)
       const insertTile = db.prepare(`
-        INSERT INTO farm_tiles (id, farm_id, tile_x, tile_y, type, state, watered, growth_stage)
-        VALUES (?, ?, ?, ?, 'soil', 'EMPTY', 0, 0)
+        INSERT INTO farm_tiles (id, farm_id, tile_x, tile_y, type, state, watered, growth_stage, crop_id, planted_at, harvest_ready_at)
+        VALUES (?, ?, ?, ?, 'soil', ?, ?, ?, ?, ?, ?)
       `);
-      plotCoords.forEach(p => {
-        insertTile.run('tile_' + crypto.randomUUID(), farmId, p.x, p.y);
-      });
+      for (let dy = 0; dy < 4; dy++) {
+        for (let dx = 0; dx < 8; dx++) {
+          const tileX = 2 + dx;
+          const tileY = 12 + dy;
+          // Seed initial demo fruits on first row so they are immediately visible
+          let state = 'EMPTY';
+          let watered = 1;
+          let cropId = null;
+          let stage = 0;
+          let plantedAt = null;
+          let readyAt = null;
 
-      // 5. Provide Starter Seeds in Inventory
+          if (dx === 0 && dy === 0) {
+            state = 'READY'; cropId = 'berry'; stage = 5; plantedAt = now - 60000; readyAt = now - 1000;
+          } else if (dx === 1 && dy === 0) {
+            state = 'READY'; cropId = 'tomato'; stage = 7; plantedAt = now - 60000; readyAt = now - 1000;
+          } else if (dx === 2 && dy === 0) {
+            state = 'READY'; cropId = 'wheat'; stage = 6; plantedAt = now - 60000; readyAt = now - 1000;
+          } else if (dx === 3 && dy === 0) {
+            state = 'READY'; cropId = 'carrot'; stage = 5; plantedAt = now - 60000; readyAt = now - 1000;
+          }
+
+          insertTile.run('tile_' + crypto.randomUUID(), farmId, tileX, tileY, state, watered, stage, cropId, plantedAt, readyAt);
+        }
+      }
+
+      // 5. Provide Starter Seeds in Inventory (Grains, Vegetables & Fruits)
       const insertInventory = db.prepare(`
         INSERT INTO inventories (id, user_id, item_id, quantity, reserved, quality)
         VALUES (?, ?, ?, ?, 0, 'normal')
       `);
-      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_wheat', 6);
-      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_tomato', 4);
+      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_wheat', 10);
+      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_carrot', 8);
+      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_berry', 6);
+      insertInventory.run('inv_' + crypto.randomUUID(), userId, 'seed_tomato', 6);
 
       // 6. Provide Starter Tools with Max Durability
       const insertTool = db.prepare(`

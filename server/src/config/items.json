@@ -245,6 +245,210 @@
       "baseSellPrice": 110,
       "description": "Cacho de uvas aromáticas colhidas no outono."
     },
+    "seeds_carrot": {
+      "id": "seeds_carrot",
+      "name": "Sementes de Cenoura",
+      "category": "seed",
+      "cropId": "carrot",
+      "buyPrice": 12,
+      "sellPrice": 6,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "crop_carrot": {
+      "id": "crop_carrot",
+      "name": "Cenoura Doce",
+      "category": "produce",
+      "cropId": "carrot",
+      "baseSellPrice": 24,
+      "description": "Raiz crocante colhida da horta."
+    },
+    "seeds_radish": {
+      "id": "seeds_radish",
+      "name": "Sementes de Rabanete",
+      "category": "seed",
+      "cropId": "radish",
+      "buyPrice": 16,
+      "sellPrice": 8,
+      "description": "Plante em solo arado na Primavera ou Verão."
+    },
+    "crop_radish": {
+      "id": "crop_radish",
+      "name": "Rabanete Vermelho",
+      "category": "produce",
+      "cropId": "radish",
+      "baseSellPrice": 30,
+      "description": "Raiz picante de sabor marcante."
+    },
+    "seeds_lettuce": {
+      "id": "seeds_lettuce",
+      "name": "Sementes de Alface",
+      "category": "seed",
+      "cropId": "lettuce",
+      "buyPrice": 11,
+      "sellPrice": 5,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "crop_lettuce": {
+      "id": "crop_lettuce",
+      "name": "Alface Americana",
+      "category": "produce",
+      "cropId": "lettuce",
+      "baseSellPrice": 22,
+      "description": "Folhas verdes frescas e crocantes."
+    },
+    "seeds_wheat": {
+      "id": "seeds_wheat",
+      "name": "Sementes de Trigo",
+      "category": "seed",
+      "cropId": "wheat",
+      "buyPrice": 20,
+      "sellPrice": 10,
+      "description": "Plante em solo arado na Primavera ou Outono."
+    },
+    "crop_wheat": {
+      "id": "crop_wheat",
+      "name": "Trigo Dourado",
+      "category": "produce",
+      "cropId": "wheat",
+      "baseSellPrice": 36,
+      "description": "Feixe de trigo ideal para moagem de farinha."
+    },
+    "seeds_cauliflower": {
+      "id": "seeds_cauliflower",
+      "name": "Sementes de Couve-flor",
+      "category": "seed",
+      "cropId": "cauliflower",
+      "buyPrice": 30,
+      "sellPrice": 15,
+      "description": "Plante em solo arado na Primavera."
+    },
+    "crop_cauliflower": {
+      "id": "crop_cauliflower",
+      "name": "Couve-flor Nobre",
+      "category": "produce",
+      "cropId": "cauliflower",
+      "baseSellPrice": 50,
+      "description": "Hortaliça encorpada de primavera."
+    },
+    "seeds_berry": {
+      "id": "seeds_berry",
+      "name": "Mudas de Amora Silvestre",
+      "category": "seed",
+      "cropId": "berry",
+      "buyPrice": 32,
+      "sellPrice": 16,
+      "description": "Fruta silvestre. Plante na Primavera ou Verão."
+    },
+    "crop_berry": {
+      "id": "crop_berry",
+      "name": "Amoras Silvestres",
+      "category": "produce",
+      "cropId": "berry",
+      "baseSellPrice": 50,
+      "description": "Bagas vermelhas colhidas de arbustos."
+    },
+    "seeds_tomato": {
+      "id": "seeds_tomato",
+      "name": "Sementes de Tomate",
+      "category": "seed",
+      "cropId": "tomato",
+      "buyPrice": 28,
+      "sellPrice": 14,
+      "description": "Fruta/legume essencial para molhos. Plante no Verão."
+    },
+    "crop_tomato": {
+      "id": "crop_tomato",
+      "name": "Tomate Maduro",
+      "category": "produce",
+      "cropId": "tomato",
+      "baseSellPrice": 48,
+      "description": "Fruto vermelho suculento colhido no verão."
+    },
+    "seeds_corn": {
+      "id": "seeds_corn",
+      "name": "Sementes de Milho",
+      "category": "seed",
+      "cropId": "corn",
+      "buyPrice": 34,
+      "sellPrice": 17,
+      "description": "Plante no Verão ou Outono."
+    },
+    "crop_corn": {
+      "id": "crop_corn",
+      "name": "Milho Doce",
+      "category": "produce",
+      "cropId": "corn",
+      "baseSellPrice": 56,
+      "description": "Espiga de milho doce dourada."
+    },
+    "seeds_pepper": {
+      "id": "seeds_pepper",
+      "name": "Sementes de Pimenta",
+      "category": "seed",
+      "cropId": "pepper",
+      "buyPrice": 30,
+      "sellPrice": 15,
+      "description": "Plante em solo arado no Verão."
+    },
+    "crop_pepper": {
+      "id": "crop_pepper",
+      "name": "Pimenta Malagueta",
+      "category": "produce",
+      "cropId": "pepper",
+      "baseSellPrice": 50,
+      "description": "Pimenta aromática e ardente de verão."
+    },
+    "seeds_bamboo": {
+      "id": "seeds_bamboo",
+      "name": "Mudas de Bambu",
+      "category": "seed",
+      "cropId": "bamboo",
+      "buyPrice": 70,
+      "sellPrice": 35,
+      "description": "Plante no Verão. Gera colmos vigorosos."
+    },
+    "crop_bamboo": {
+      "id": "crop_bamboo",
+      "name": "Colmo de Bambu",
+      "category": "produce",
+      "cropId": "bamboo",
+      "baseSellPrice": 85,
+      "description": "Vara de bambu resistente."
+    },
+    "seeds_eggplant": {
+      "id": "seeds_eggplant",
+      "name": "Sementes de Berinjela",
+      "category": "seed",
+      "cropId": "eggplant",
+      "buyPrice": 75,
+      "sellPrice": 37,
+      "description": "Plante em solo arado no Outono."
+    },
+    "crop_eggplant": {
+      "id": "crop_eggplant",
+      "name": "Berinjela Roxa",
+      "category": "produce",
+      "cropId": "eggplant",
+      "baseSellPrice": 88,
+      "description": "Belo legume lustroso de outono."
+    },
+    "seeds_beetroot": {
+      "id": "seeds_beetroot",
+      "name": "Sementes de Beterraba",
+      "category": "seed",
+      "cropId": "beetroot",
+      "buyPrice": 65,
+      "sellPrice": 32,
+      "description": "Plante em solo arado no Outono."
+    },
+    "crop_beetroot": {
+      "id": "crop_beetroot",
+      "name": "Beterraba Vermelha",
+      "category": "produce",
+      "cropId": "beetroot",
+      "baseSellPrice": 80,
+      "description": "Raiz doce avermelhada de outono."
+    },
     "artisan_blueberry_jam": {
       "id": "artisan_blueberry_jam",
       "name": "Geléia de Mirtilo",

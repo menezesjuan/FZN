@@ -4,7 +4,8 @@ export default function HUD({
   player, 
   time, 
   weather = 'sunny',
-  inventory, 
+  inventory = [], 
+  hotbar,
   selectedSlot, 
   onSelectSlot, 
   onOpenInventory, 
@@ -37,16 +38,17 @@ export default function HUD({
   const xpPercent = Math.min(100, Math.round((player.xp / xpRequired) * 100));
   const energyPercent = Math.min(100, Math.round((player.energy / player.maxEnergy) * 100));
 
+  const itemsList = inventory || hotbar || [];
   // Hotbar displays slots 0 to 7
   const hotbarSlots = Array.from({ length: 8 }).map((_, index) => {
-    const item = inventory.find(i => i.slot === index);
+    const item = itemsList.find(i => i.slot === index);
     const itemDef = item ? itemsConfig?.items?.[item.id] : null;
     return { slotIndex: index, item, itemDef };
   });
 
   return (
     <>
-      {/* Top Bar: Stats & Controls — Fixed position with explicit high zIndex */}
+      {/* Top Bar: Stats, Center Navigation & Clock — Perfectly Balanced & Centralized */}
       <header style={{
         position: 'fixed',
         top: '10px',
@@ -60,12 +62,12 @@ export default function HUD({
         gap: '12px'
       }}>
         {/* Left: Player status card */}
-        <div className="pixel-panel" style={{ padding: '8px 14px', width: '280px', pointerEvents: 'auto', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span className="font-pixel" style={{ fontSize: '11px', color: '#ffec40', textShadow: '1px 1px 0 #000' }}>
+        <div className="pixel-panel" style={{ padding: '8px 14px', minWidth: '300px', maxWidth: '340px', pointerEvents: 'auto', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', gap: '8px' }}>
+            <span className="font-pixel" style={{ fontSize: '11px', color: '#ffec40', textShadow: '1px 1px 0 #000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               Nvl. {player.level} {player.name}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
               <div
                 style={{
                   display: 'flex',
@@ -85,9 +87,9 @@ export default function HUD({
                   T{farmTiers?.unlockedTier || 1}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px' }}>
                 <span style={{ color: '#ffd700', fontWeight: 'bold' }}>🪙</span>
-                <span className="font-pixel" style={{ fontSize: '12px', color: '#fff' }}>{player.money}G</span>
+                <span className="font-pixel" style={{ fontSize: '12px', color: '#fff', whiteSpace: 'nowrap' }}>{player.money}G</span>
               </div>
             </div>
           </div>
@@ -155,8 +157,97 @@ export default function HUD({
           </div>
         </div>
 
-        {/* Right: Date, Weather & Responsive Menu Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', pointerEvents: 'none', maxWidth: 'calc(100vw - 320px)' }}>
+        {/* Center: Action & Menu Toolbar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', pointerEvents: 'auto', alignSelf: 'center' }}>
+          {totalReadyHarvests > 0 && (
+            <button 
+              className="pixel-btn" 
+              onClick={onHarvestAll}
+              title="Colher toda a produção pronta da fazenda com 1 clique (Atalho: C)"
+              style={{ 
+                background: 'linear-gradient(135deg, #15803d, #16a34a)', 
+                borderColor: '#fde047', 
+                color: '#fef08a',
+                fontWeight: 'bold',
+                boxShadow: '0 0 10px rgba(34, 197, 94, 0.6)',
+                fontSize: '11px',
+                padding: '6px 12px'
+              }}
+            >
+              🌾 Colher Tudo ({totalReadyHarvests})
+            </button>
+          )}
+
+          <button 
+            className="pixel-btn" 
+            onClick={onOpenShop} 
+            title="Loja de Sementes e Mantimentos (Atalho: B)"
+            style={{ background: '#3b7a15', borderColor: '#1e4506', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+          >
+            🏪 Loja
+          </button>
+
+          {onOpenContracts && (
+            <button 
+              className="pixel-btn" 
+              onClick={onOpenContracts} 
+              title="Mural de Contratos Comerciais e Eventos"
+              style={{ background: '#5d4037', borderColor: '#3e2723', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+            >
+              📜 Contratos
+            </button>
+          )}
+
+          <button 
+            className="pixel-btn" 
+            onClick={onOpenMarket} 
+            title="Mercado Multiplayer P2P (Atalho: M)"
+            style={{ background: '#92400e', borderColor: '#78350f', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+          >
+            ⚖️ Mercado
+          </button>
+
+          <button 
+            className="pixel-btn" 
+            onClick={onOpenRanch} 
+            title="Rancho de Animais e Manejo de Rebanho"
+            style={{ background: '#1d4ed8', borderColor: '#1e3a8a', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+          >
+            🐄 Rancho
+          </button>
+
+          <button 
+            className="pixel-btn" 
+            onClick={onOpenToolsShop} 
+            title="Oficina de Ferraria & Reparos de Ferramentas"
+            style={{ background: '#475569', borderColor: '#334155', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+          >
+            🔨 Ferraria
+          </button>
+
+          <button 
+            className="pixel-btn" 
+            onClick={() => window.dispatchEvent(new CustomEvent('open-crafting-modal'))} 
+            title="Processamento Agroindustrial e Armazenamento"
+            style={{ background: '#c2410c', borderColor: '#9a3412', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+          >
+            🏭 Indústria
+          </button>
+
+          {onLogout && (
+            <button 
+              className="pixel-btn" 
+              onClick={onLogout} 
+              title="Encerrar Sessão"
+              style={{ background: '#7f1d1d', borderColor: '#5c1010', color: '#fca5a5', padding: '6px 10px', fontSize: '11px' }}
+            >
+              🚪 Sair
+            </button>
+          )}
+        </div>
+
+        {/* Right: Date, Weather & Audio Settings */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', pointerEvents: 'none', flexShrink: 0 }}>
           {/* Weather & Time Box */}
           <div className="pixel-panel" style={{ padding: '6px 12px', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'auto' }}>
             <div style={{
@@ -192,101 +283,11 @@ export default function HUD({
             >
               {isMuted ? '🔇' : '🔊'}
             </button>
-          </div>
-
-          {/* Action & Menu Buttons Grid — Flex Wrap cleanly aligned */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
-            {totalReadyHarvests > 0 && (
-              <button 
-                className="pixel-btn" 
-                onClick={onHarvestAll}
-                title="Colher toda a produção pronta da fazenda com 1 clique (Atalho: C)"
-                style={{ 
-                  background: 'linear-gradient(135deg, #15803d, #16a34a)', 
-                  borderColor: '#fde047', 
-                  color: '#fef08a',
-                  fontWeight: 'bold',
-                  boxShadow: '0 0 10px rgba(34, 197, 94, 0.6)',
-                  fontSize: '11px',
-                  padding: '6px 12px'
-                }}
-              >
-                🌾 Colher Tudo ({totalReadyHarvests})
-              </button>
-            )}
-
-            <button 
-              className="pixel-btn" 
-              onClick={onOpenShop} 
-              title="Loja de Sementes e Mantimentos (Atalho: B)"
-              style={{ background: '#3b7a15', borderColor: '#1e4506', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🏪 Loja
-            </button>
-
-            {onOpenContracts && (
-              <button 
-                className="pixel-btn" 
-                onClick={onOpenContracts} 
-                title="Mural de Contratos Comerciais e Eventos"
-                style={{ background: '#5d4037', borderColor: '#3e2723', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-              >
-                📜 Contratos
-              </button>
-            )}
-
-            <button 
-              className="pixel-btn" 
-              onClick={onOpenMarket} 
-              title="Mercado Global — Comércio entre Fazendeiros (Atalho: K)"
-              style={{ background: '#8d420f', borderColor: '#4a1f03', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              ⚖️ Mercado
-            </button>
-
-            <button
-              className="pixel-btn"
-              onClick={onOpenRanch}
-              title="Rancho Marlene — Comprar Animais & Gestão de Rebanho (Atalho: R)"
-              style={{ background: '#2980b9', borderColor: '#1a5276', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🐮 Rancho
-            </button>
-
-            <button
-              className="pixel-btn"
-              onClick={onOpenToolsShop}
-              title="Oficina do Ferreiro — Manutenção e Reparo de Ferramentas (Atalho: T)"
-              style={{ background: '#7f8c8d', borderColor: '#34495e', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🔨 Ferraria
-            </button>
-
-            <button 
-              className="pixel-btn" 
-              onClick={onOpenManagement} 
-              title="Indústria & Processamento — Moinho, Queijeira e Forno (Atalho: M)"
-              style={{ background: '#d35400', borderColor: '#933d02', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🏭 Indústria
-            </button>
-
-            {onLogout && (
-              <button 
-                className="pixel-btn" 
-                onClick={onLogout} 
-                title="Sair da Conta de Fazendeiro"
-                style={{ background: '#9e2a2b', borderColor: '#591617', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
-              >
-                👤 Sair
-              </button>
-            )}
-
             <button 
               className="pixel-btn" 
               onClick={() => setShowDevTools(p => !p)} 
               title="Painel de Ferramentas Rápidas de Desenvolvedor"
-              style={{ padding: '6px 9px', fontSize: '12px', background: '#64748b', borderColor: '#334155', color: '#fff' }}
+              style={{ padding: '4px 8px', fontSize: '12px', background: '#64748b', borderColor: '#334155', color: '#fff', marginLeft: '4px' }}
             >
               🛠️
             </button>

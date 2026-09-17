@@ -1,4 +1,4 @@
-﻿const crypto = require('crypto');
+const crypto = require('crypto');
 const { db } = require('../db/database');
 const { economyConfig, getToolEfficiency } = require('../config/economyConfig');
 const durabilityService = require('./durabilityService');
@@ -13,7 +13,74 @@ class FarmService {
     // Run tick updates on farm tiles and animals
     this.updateGrowth(farm.id);
 
-    const tiles = db.prepare('SELECT * FROM farm_tiles WHERE farm_id = ? ORDER BY tile_y, tile_x').all(farm.id);
+    let tiles = db.prepare('SELECT * FROM farm_tiles WHERE farm_id = ? ORDER BY tile_y, tile_x').all(farm.id);
+    if (tiles.length < 32) {
+      const existingCoords = new Set(tiles.map(t => `${t.tile_x},${t.tile_y}`));
+      const insertTile = db.prepare(`
+        INSERT INTO farm_tiles (id, farm_id, tile_x, tile_y, type, state, watered, growth_stage, crop_id, planted_at, harvest_ready_at)
+        VALUES (?, ?, ?, ?, 'soil', ?, ?, ?, ?, ?, ?)
+      `);
+      const now = Date.now();
+      for (let dy = 0; dy < 4; dy++) {
+        for (let dx = 0; dx < 8; dx++) {
+          const tx = 2 + dx;
+          const ty = 12 + dy;
+          if (!existingCoords.has(`${tx},${ty}`)) {
+            let state = 'EMPTY';
+            let cropId = null;
+            let stage = 0;
+            let plantedAt = null;
+            let readyAt = null;
+            if (dx === 0 && dy === 0) {
+              state = 'READY'; cropId = 'berry'; stage = 5; plantedAt = now - 60000; readyAt = now - 1000;
+            } else if (dx === 1 && dy === 0) {
+              state = 'READY'; cropId = 'tomato'; stage = 7; plantedAt = now - 60000; readyAt = now - 1000;
+            } else if (dx === 2 && dy === 0) {
+              state = 'READY'; cropId = 'wheat'; stage = 6; plantedAt = now - 60000; readyAt = now - 1000;
+            } else if (dx === 3 && dy === 0) {
+              state = 'READY'; cropId = 'carrot'; stage = 5; plantedAt = now - 60000; readyAt = now - 1000;
+            }
+            insertTile.run('tile_' + crypto.randomUUID(), farm.id, tx, ty, state, 1, stage, cropId, plantedAt, readyAt);
+          }
+        }
+      }
+      tiles = db.prepare('SELECT * FROM farm_tiles WHERE farm_id = ? ORDER BY tile_y, tile_x').all(farm.id);
+    }
+
+    const farmTilesMap = {};
+    for (let y = 0; y < 18; y++) {
+      for (let x = 0; x < 24; x++) {
+        farmTilesMap[`${x},${y}`] = {
+          x,
+          y,
+          state: 'grass',
+          isWatered: false,
+          crop: null
+        };
+      }
+    }
+    tiles.forEach(t => {
+      farmTilesMap[`${t.tile_x},${t.tile_y}`] = {
+        id: t.id,
+        x: t.tile_x,
+        y: t.tile_y,
+        state: 'tilled',
+        isWatered: t.watered === 1,
+        crop: t.crop_id ? {
+          id: t.crop_id,
+          stage: t.growth_stage,
+          ready: t.state === 'READY'
+        } : null
+      };
+    });
+
+    const enrichedFarm = {
+      ...farm,
+      width: 24,
+      height: 18,
+      tiles: farmTilesMap
+    };
+
     const inventory = db.prepare('SELECT * FROM inventories WHERE user_id = ? AND quantity > 0').all(userId);
     const tools = db.prepare('SELECT * FROM tools WHERE user_id = ?').all(userId);
     const animals = db.prepare('SELECT * FROM animals WHERE farm_id = ?').all(farm.id);
@@ -31,7 +98,7 @@ class FarmService {
     });
 
     return {
-      farm,
+      farm: enrichedFarm,
       wallet,
       tiles,
       inventory,

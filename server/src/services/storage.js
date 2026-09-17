@@ -17,15 +17,18 @@ function getDefaultGameState() {
   const tiles = {};
 
   // Default tiles: mostly grass (0), some trees or boundaries
+  // Default tiles: lush grass, plus a generous 32-tile tilled & irrigated planting field
   for (let y = 0; y < farmHeight; y++) {
     for (let x = 0; x < farmWidth; x++) {
       const key = `${x},${y}`;
+      // Expansive 8x4 central planting field ready for crops (32 fertile tiles)
+      const isStarterField = (x >= 2 && x <= 9 && y >= 12 && y <= 15);
       tiles[key] = {
         x,
         y,
-        state: 'grass', // 'grass', 'tilled'
-        isWatered: false,
-        crop: null // { id, stage, plantedAt, lastWateredAt, ready }
+        state: isStarterField ? 'tilled' : 'grass',
+        isWatered: isStarterField,
+        crop: null
       };
     }
   }
@@ -38,7 +41,7 @@ function getDefaultGameState() {
       xp: 0,
       energy: 100,
       maxEnergy: 100,
-      position: { x: 10, y: 8 },
+      position: { x: 5, y: 11 }, // Spawns directly adjacent to the expansive planting field
       location: 'farm',
       isIdleAuthorized: true
     },
@@ -67,17 +70,19 @@ function getDefaultGameState() {
         { id: "seeds_onion", quantity: 4, quality: "normal", slot: 1 }
       ],
       trees: [
-        { id: "tree_1", x: 2, y: 2, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_1", x: 1, y: 1, health: 3, maxHealth: 3, isStump: false },
         { id: "tree_2", x: 5, y: 1, health: 3, maxHealth: 3, isStump: false },
-        { id: "tree_3", x: 1, y: 8, health: 3, maxHealth: 3, isStump: false },
-        { id: "tree_4", x: 2, y: 13, health: 3, maxHealth: 3, isStump: false },
-        { id: "tree_5", x: 19, y: 13, health: 3, maxHealth: 3, isStump: false },
-        { id: "tree_6", x: 21, y: 7, health: 3, maxHealth: 3, isStump: false }
+        { id: "tree_3", x: 1, y: 6, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_4", x: 1, y: 17, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_5", x: 22, y: 14, health: 3, maxHealth: 3, isStump: false },
+        { id: "tree_6", x: 22, y: 6, health: 3, maxHealth: 3, isStump: false }
       ]
     },
     inventory: [
-      { id: "seeds_onion", quantity: 6, quality: "normal", slot: 0 },
-      { id: "seeds_leek", quantity: 4, quality: "normal", slot: 1 }
+      { id: "seeds_berry", quantity: 6, quality: "normal", slot: 0 },
+      { id: "seeds_carrot", quantity: 6, quality: "normal", slot: 1 },
+      { id: "seeds_wheat", quantity: 6, quality: "normal", slot: 2 },
+      { id: "seeds_onion", quantity: 6, quality: "normal", slot: 3 }
     ],
     time: {
       day: 1,
@@ -273,6 +278,23 @@ class StorageService {
         }
         if (!state.lastActive) {
           state.lastActive = Date.now();
+        }
+        if (state.farm && state.farm.tiles) {
+          for (let y = 12; y <= 15; y++) {
+            for (let x = 2; x <= 9; x++) {
+              const k = `${x},${y}`;
+              if (state.farm.tiles[k] && state.farm.tiles[k].state === 'grass') {
+                state.farm.tiles[k].state = 'tilled';
+                state.farm.tiles[k].isWatered = true;
+              }
+            }
+          }
+        }
+        if (state.inventory && !state.inventory.some(i => i.id === 'seeds_berry')) {
+          state.inventory.push({ id: 'seeds_berry', quantity: 6, quality: 'normal', slot: state.inventory.length });
+        }
+        if (state.inventory && !state.inventory.some(i => i.id === 'seeds_carrot')) {
+          state.inventory.push({ id: 'seeds_carrot', quantity: 6, quality: 'normal', slot: state.inventory.length });
         }
         if (!state.idlePlots) {
           state.idlePlots = [

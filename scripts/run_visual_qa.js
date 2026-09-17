@@ -36,8 +36,19 @@ async function runVisualQA() {
       const demoBtn = btns.find(b => b.innerText.includes('ENTRAR RÁPIDO'));
       if (demoBtn) demoBtn.click();
     });
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Turn off Idle Bot to show manual player focus
+    await page.keyboard.press('KeyZ');
+    await new Promise(r => setTimeout(r, 400));
     await save(page, 'farm_view');
+
+    // Walk player down to the expansive 32-tile planting field (x:2..9, y:12..15)
+    await page.keyboard.down('KeyS');
+    await new Promise(r => setTimeout(r, 1500));
+    await page.keyboard.up('KeyS');
+    await new Promise(r => setTimeout(r, 600));
+    await save(page, 'planting_field');
 
     console.log('[Visual QA] 3. Opening Market Modal...');
     await page.evaluate(() => {
