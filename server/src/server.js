@@ -1,24 +1,29 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { db, initSchema } = require('./db/database');
 const apiRoutes = require('./routes/api');
-const farmEngine = require('./services/farmEngine');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Serve raw game assets from project root directly
+// Serve assets directly from root /assets directory
 const rootDir = path.resolve(__dirname, '../../');
-app.use('/assets/Character', express.static(path.join(rootDir, 'Character')));
-app.use('/assets/Farm Animals', express.static(path.join(rootDir, 'Farm Animals')));
-app.use('/assets/Objects', express.static(path.join(rootDir, 'Objects')));
-app.use('/assets/Tileset', express.static(path.join(rootDir, 'Tileset')));
+const assetsDir = path.join(rootDir, 'assets');
 
-// Serve production client build if present
+app.use('/assets', express.static(assetsDir));
+app.use('/assets/Character', express.static(path.join(assetsDir, 'Character')));
+app.use('/assets/Farm Animals', express.static(path.join(assetsDir, 'Farm Animals')));
+app.use('/assets/Objects', express.static(path.join(assetsDir, 'Objects')));
+app.use('/assets/tiles', express.static(path.join(assetsDir, 'tiles')));
+app.use('/assets/Tileset', express.static(path.join(assetsDir, 'Tileset')));
+app.use('/assets/crops', express.static(path.join(assetsDir, 'crops')));
+
+// Serve production client build
 const clientDist = path.join(rootDir, 'client', 'dist');
 if (require('fs').existsSync(clientDist)) {
   app.use(express.static(clientDist));
@@ -27,17 +32,33 @@ if (require('fs').existsSync(clientDist)) {
 // API Routes
 app.use('/api', apiRoutes);
 
-// Periodic server-side growth tick every 5 seconds
-setInterval(() => {
-  farmEngine.updateGrowth();
-}, 5000);
-
-// Root healthcheck
+// Healthcheck
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: Date.now() });
+  try {
+    const row = db.prepare('SELECT 1 as alive').get();
+    res.json({ status: 'ok', db: row.alive === 1, time: Date.now() });
+  } catch (err) {
+    res.status(500).json({ status: 'error', error: err.message });
+  }
 });
+
+// Catch-all route for SPA client routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/assets')) {
+    return next();
+  }
+  const indexHtml = path.join(clientDist, 'index.html');
+  if (require('fs').existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
+  next();
+});
+
+initSchema();
 
 app.listen(PORT, () => {
-  console.log(`[FZN Backend] Server running on http://localhost:${PORT}`);
-  console.log(`[FZN Backend] Authoritative game loop active.`);
+  console.log(`[FZN Server] Autoritativo rodando em http://localhost:${PORT}`);
+  console.log(`[FZN Server] SQLite WAL mode ativo com integridade transacional.`);
 });
+
+module.exports = app;

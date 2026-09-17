@@ -6,4 +6,6 @@ build/
 .env
 .env.local
 server/data/savegame.json
+server/data/*.sqlite*
 client/dist/
+

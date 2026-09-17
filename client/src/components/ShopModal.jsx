@@ -1,26 +1,43 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { api } from '../api/client';
 
-export default function ShopModal({ 
-  isOpen, 
-  onClose, 
-  catalog, 
-  inventory, 
-  playerMoney, 
-  itemsConfig,
-  cropsConfig = {},
-  currentSeason = 'Primavera',
-  onBuy, 
-  onSell 
-}) {
-  const [tab, setTab] = useState('buy'); // 'buy' or 'sell'
+export default function ShopModal({ isOpen, onClose, inventory, onRefreshState, showToast }) {
+  const [activeTab, setActiveTab] = useState('buy'); // 'buy' or 'sell'
+  const [catalog, setCatalog] = useState({ seeds: [] });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    api.getCatalog().then(setCatalog).catch(console.error);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Items in inventory available to sell (produce or surplus seeds)
-  const sellableItems = inventory.filter(item => {
-    const def = itemsConfig?.items?.[item.id];
-    return def && def.category !== 'tool';
-  });
+  async function handleBuySeed(seedId, qty) {
+    setLoading(true);
+    try {
+      const res = await api.buySeed(seedId, qty);
+      showToast(res.message, 'success');
+      if (onRefreshState) onRefreshState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSellItem(itemId, qty) {
+    setLoading(true);
+    try {
+      const res = await api.sellItem(itemId, qty);
+      showToast(res.message, 'success');
+      if (onRefreshState) onRefreshState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div style={{
@@ -29,212 +46,217 @@ export default function ShopModal({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 50
+      zIndex: 9000,
+      fontFamily: '"Press Start 2P", monospace, sans-serif'
     }}>
-      <div className="pixel-panel" style={{ width: '600px', maxWidth: '95vw', padding: '20px' }}>
+      <div style={{
+        background: '#e9dac1',
+        border: '4px solid #5a381e',
+        borderRadius: '8px',
+        width: '680px',
+        maxWidth: '96vw',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
+        color: '#3d2514'
+      }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{
+          padding: '14px 18px',
+          background: '#613b1f',
+          color: '#f9f3e3',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTopLeftRadius: '4px',
+          borderTopRightRadius: '4px'
+        }}>
           <div>
-            <h2 className="font-pixel" style={{ fontSize: '14px', color: '#ffec40', textShadow: '1px 1px 0 #000' }}>
-              🏪 Empório do Vilarejo
-            </h2>
-            <div style={{ fontSize: '12px', color: '#f7e6c4', marginTop: '4px' }}>
-              Seu Saldo: <strong style={{ color: '#ffd700' }}>{playerMoney}G</strong>
+            <span style={{ fontSize: '13px' }}>🏪 ARMAZÉM DO VALE (LOJA NPC)</span>
+            <div style={{ fontSize: '8px', color: '#ffde99', marginTop: '4px' }}>
+              Fornecimento de sementes e liquidez básica garantida
             </div>
           </div>
-          <button className="pixel-btn" onClick={onClose} style={{ padding: '4px 10px' }}>
-            ✖ Fechar
+          <button
+            onClick={onClose}
+            style={{
+              background: '#9e2a2b',
+              color: '#fff',
+              border: '2px solid #591617',
+              borderRadius: '4px',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '10px'
+            }}
+          >
+            ✕
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+        {/* Tab switcher */}
+        <div style={{ padding: '8px 16px', background: '#d8c29d', display: 'flex', gap: '8px' }}>
           <button
-            className="pixel-btn"
+            onClick={() => setActiveTab('buy')}
             style={{
-              flex: 1,
-              background: tab === 'buy' ? '#ffdf94' : '#c28d5d',
-              borderBottom: tab === 'buy' ? '3px solid #ffaa00' : undefined
+              padding: '6px 12px',
+              fontSize: '9px',
+              background: activeTab === 'buy' ? '#5a381e' : '#ba9d77',
+              color: activeTab === 'buy' ? '#fff' : '#2b1708',
+              border: '2px solid #4a2d16',
+              borderRadius: '4px',
+              cursor: 'pointer'
             }}
-            onClick={() => setTab('buy')}
           >
-            🌱 Comprar Sementes
+            COMPRAR SEMENTES
           </button>
           <button
-            className="pixel-btn"
+            onClick={() => setActiveTab('sell')}
             style={{
-              flex: 1,
-              background: tab === 'sell' ? '#ffdf94' : '#c28d5d',
-              borderBottom: tab === 'sell' ? '3px solid #ffaa00' : undefined
+              padding: '6px 12px',
+              fontSize: '9px',
+              background: activeTab === 'sell' ? '#5a381e' : '#ba9d77',
+              color: activeTab === 'sell' ? '#fff' : '#2b1708',
+              border: '2px solid #4a2d16',
+              borderRadius: '4px',
+              cursor: 'pointer'
             }}
-            onClick={() => setTab('sell')}
           >
-            💰 Vender Mercadorias ({sellableItems.length})
+            VENDER MINHA PRODUÇÃO
           </button>
         </div>
 
-        {/* Tab Content */}
-        <div className="pixel-panel-inner" style={{ padding: '12px', maxHeight: '340px', overflowY: 'auto' }}>
-          {tab === 'buy' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '6px 10px',
-                background: '#fef3c7',
-                borderRadius: '4px',
-                border: '1px solid #fde68a',
-                fontSize: '11px',
-                color: '#92400e'
-              }}>
-                <span>Estação Atual: <strong>{{ Primavera: '🌸 Primavera', Verão: '☀️ Verão', Outono: '🍂 Outono', Inverno: '❄️ Inverno' }[currentSeason] || currentSeason}</strong></span>
-                {currentSeason === 'Inverno' ? (
-                  <span style={{ color: '#dc2626', fontWeight: 'bold' }}>❄️ Inverno: sem plantios ativos</span>
-                ) : (
-                  <span>Sementes fora de época podem ser guardadas no baú</span>
-                )}
-              </div>
-
-              {catalog.map(seed => {
-                const cropDef = cropsConfig?.[seed.cropId];
-                const inSeason = cropDef?.seasons ? cropDef.seasons.includes(currentSeason) : true;
-                const isWinter = currentSeason === 'Inverno';
-
-                return (
-                  <div
-                    key={seed.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px',
-                      background: inSeason && !isWinter ? '#fff9ed' : '#f8fafc',
-                      border: `1px solid ${inSeason && !isWinter ? '#d4a373' : '#cbd5e1'}`,
-                      borderRadius: '4px',
-                      opacity: inSeason && !isWinter ? 1 : 0.85
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '24px' }}>🌱</span>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <h4 style={{ fontSize: '13px', fontWeight: 'bold' }}>{seed.name}</h4>
-                          {cropDef?.seasons && (
-                            <span style={{
-                              fontSize: '9px',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              background: inSeason && !isWinter ? '#dcfce7' : '#fee2e2',
-                              color: inSeason && !isWinter ? '#15803d' : '#b91c1c',
-                              fontWeight: 'bold',
-                              border: `1px solid ${inSeason && !isWinter ? '#86efac' : '#fca5a5'}`
-                            }}>
-                              {inSeason && !isWinter ? `✓ ${cropDef.seasons.join('/')}` : `🚫 ${cropDef.seasons.join('/')}`}
-                            </span>
-                          )}
-                        </div>
-                        <p style={{ fontSize: '11px', color: '#664422' }}>{seed.description}</p>
-                      </div>
+        {/* Body */}
+        <div style={{ padding: '16px', overflowY: 'auto', flex: 1, fontSize: '9px' }}>
+          {activeTab === 'buy' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {(catalog.seeds || []).map(seed => (
+                <div
+                  key={seed.id}
+                  style={{
+                    background: '#fffdf9',
+                    border: '2px solid #8d5b35',
+                    borderRadius: '4px',
+                    padding: '10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>🌱 {seed.name}</div>
+                    <div style={{ fontSize: '8px', color: '#666', lineHeight: '1.5', marginBottom: '8px' }}>
+                      Preço: <strong style={{ color: '#b85d18' }}>{seed.price}G</strong><br />
+                      Tempo: <strong>{seed.growthTimeSec}s</strong> • Colheita: <strong>{seed.yield}x</strong>
                     </div>
+                  </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="font-pixel" style={{ fontSize: '12px', color: '#b45309' }}>
-                      {seed.buyPrice}G
-                    </span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
                     <button
-                      className="pixel-btn"
-                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                      disabled={playerMoney < seed.buyPrice}
-                      onClick={() => onBuy(seed.id, 1)}
+                      disabled={loading}
+                      onClick={() => handleBuySeed(seed.id, 1)}
+                      style={{
+                        flex: 1,
+                        padding: '6px',
+                        background: '#4a8505',
+                        color: '#fff',
+                        border: '1px solid #2e5403',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '8px',
+                        fontWeight: 'bold'
+                      }}
                     >
-                      Comprar 1x
+                      +1 ({seed.price}G)
                     </button>
                     <button
-                      className="pixel-btn"
-                      style={{ padding: '4px 8px', fontSize: '11px' }}
-                      disabled={playerMoney < seed.buyPrice * 5}
-                      onClick={() => onBuy(seed.id, 5)}
+                      disabled={loading}
+                      onClick={() => handleBuySeed(seed.id, 5)}
+                      style={{
+                        flex: 1,
+                        padding: '6px',
+                        background: '#306900',
+                        color: '#fff',
+                        border: '1px solid #1a3800',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '8px',
+                        fontWeight: 'bold'
+                      }}
                     >
-                      5x ({seed.buyPrice * 5}G)
+                      +5 ({seed.price * 5}G)
                     </button>
                   </div>
-                  </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
 
-          {tab === 'sell' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {sellableItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#7e5535' }}>
-                  Você ainda não possui mercadorias ou colheitas para vender na mochila!
+          {activeTab === 'sell' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {(inventory || []).filter(i => !i.item_id.startsWith('seed_')).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#777', fontStyle: 'italic' }}>
+                  Você não possui colheitas ou produtos processados no inventário para vender.
                 </div>
               ) : (
-                sellableItems.map(item => {
-                  const def = itemsConfig?.items?.[item.id];
-                  const quality = item.quality || 'normal';
-                  const qualityMult = itemsConfig?.qualities?.[quality]?.multiplier || 1.0;
-                  const unitPrice = Math.round((def?.baseSellPrice || def?.sellPrice || 10) * qualityMult);
-                  const totalPrice = unitPrice * item.quantity;
-
+                (inventory || []).filter(i => !i.item_id.startsWith('seed_')).map(item => {
+                  const available = item.quantity - item.reserved;
                   return (
                     <div
-                      key={`${item.slot}_${item.id}_${quality}`}
+                      key={item.id}
                       style={{
+                        background: '#fffdf9',
+                        border: '2px solid #8d5b35',
+                        borderRadius: '4px',
+                        padding: '10px 14px',
                         display: 'flex',
-                        alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '10px',
-                        background: '#fff9ed',
-                        border: '1px solid #d4a373',
-                        borderRadius: '4px'
+                        alignItems: 'center'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '24px' }}>
-                          {item.id === 'produce_egg' ? '🥚' :
-                           item.id === 'produce_milk' ? '🥛' :
-                           item.id === 'material_wood' ? '🪵' :
-                           item.id.includes('strawberry') ? '🍓' : 
-                           item.id.includes('potato') ? '🥔' :
-                           item.id.includes('leek') ? '🥗' : '🧅'}
-                        </span>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 'bold' }}>{def?.name || item.id}</h4>
-                            {quality === 'silver' && <span className="star-silver font-pixel" style={{ fontSize: '10px' }}>★ Prata</span>}
-                            {quality === 'gold' && <span className="star-gold font-pixel" style={{ fontSize: '10px' }}>★ Ouro</span>}
-                            {quality === 'iridium' && <span className="star-iridium font-pixel" style={{ fontSize: '10px' }}>★ Iridium</span>}
-                          </div>
-                          <p style={{ fontSize: '11px', color: '#664422' }}>
-                            Quantidade em posse: {item.quantity} | {unitPrice}G cada
-                          </p>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold' }}>📦 {item.item_id.toUpperCase()}</div>
+                        <div style={{ fontSize: '8px', color: '#666', marginTop: '2px' }}>
+                          Quantidade Disponível: <strong>{available}</strong> (Reservado: {item.reserved})
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
-                          className="pixel-btn"
-                          style={{ padding: '4px 8px', fontSize: '11px' }}
-                          onClick={() => onSell(item.slot, 1)}
+                          disabled={loading || available < 1}
+                          onClick={() => handleSellItem(item.item_id, 1)}
+                          style={{
+                            padding: '6px 10px',
+                            background: available >= 1 ? '#d35400' : '#ccc',
+                            color: available >= 1 ? '#fff' : '#777',
+                            border: '1px solid #000',
+                            borderRadius: '3px',
+                            cursor: available >= 1 && !loading ? 'pointer' : 'not-allowed',
+                            fontSize: '8px'
+                          }}
                         >
-                          Vender 1x (+{unitPrice}G)
+                          Vender 1
                         </button>
-                        {item.quantity > 1 && (
-                          <button
-                            className="pixel-btn"
-                            style={{ padding: '4px 8px', fontSize: '11px', background: '#4ade80', color: '#064e3b', borderColor: '#047857' }}
-                            onClick={() => onSell(item.slot, item.quantity)}
-                          >
-                            Tudo ({totalPrice}G)
-                          </button>
-                        )}
+                        <button
+                          disabled={loading || available < 1}
+                          onClick={() => handleSellItem(item.item_id, available)}
+                          style={{
+                            padding: '6px 10px',
+                            background: available >= 1 ? '#ba4a00' : '#ccc',
+                            color: available >= 1 ? '#fff' : '#777',
+                            border: '1px solid #000',
+                            borderRadius: '3px',
+                            cursor: available >= 1 && !loading ? 'pointer' : 'not-allowed',
+                            fontSize: '8px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Vender Tudo ({available})
+                        </button>
                       </div>
                     </div>
                   );

@@ -4,6 +4,7 @@ const farmEngine = require('../src/services/farmEngine');
 
 test('Economy & Tools: plantCrop requires tool_hoe', (t) => {
   const state = farmEngine.getState();
+  state.time.season = 'Primavera';
   state.farm.tiles['0,0'] = { x: 0, y: 0, state: 'tilled', isWatered: false, crop: null };
   state.inventory = [{ id: 'seeds_onion', quantity: 5, quality: 'normal', slot: 0 }];
   state.toolsOwned = [];

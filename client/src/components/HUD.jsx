@@ -23,6 +23,7 @@ export default function HUD({
   onOpenToolsShop,
   onOpenRanch,
   onOpenLicenses,
+  onLogout,
   isIdleBotActive = true,
   onToggleIdleBot,
   isIdleAuthorized = true
@@ -215,66 +216,59 @@ export default function HUD({
 
             <button 
               className="pixel-btn" 
-              onClick={onOpenInventory} 
-              title="Abrir Mochila do Fazendeiro (Atalho: I)"
-              style={{ padding: '6px 11px', fontSize: '11px' }}
-            >
-              🎒 Mochila
-            </button>
-
-            <button
-              className="pixel-btn"
-              onClick={onOpenToolsShop}
-              title="Oficina do Ferreiro — Comprar Ferramentas Obrigatórias (Atalho: T)"
-              style={{ background: '#b45309', borderColor: '#78350f', color: '#fef3c7', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🔨 Ferramentas
-            </button>
-
-            <button
-              className="pixel-btn"
-              onClick={onOpenRanch}
-              title="Rancho Marlene — Comprar Animais & Gestão de Rebanho (Atalho: R)"
-              style={{ background: '#047857', borderColor: '#064e3b', color: '#d1fae5', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🐄 Rancho
-            </button>
-
-            <button
-              className="pixel-btn"
-              onClick={onOpenLicenses}
-              title="Cooperativa Agrícola — Licenças de Expansão de Patamar (Atalho: L)"
-              style={{ background: '#4338ca', borderColor: '#312e81', color: '#e0e7ff', padding: '6px 11px', fontSize: '11px' }}
-            >
-              🏛️ Licenças
-            </button>
-
-            <button 
-              className="pixel-btn" 
               onClick={onOpenShop} 
               title="Loja de Sementes e Mantimentos (Atalho: B)"
-              style={{ padding: '6px 11px', fontSize: '11px' }}
+              style={{ background: '#3b7a15', borderColor: '#1e4506', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
             >
               🏪 Loja
             </button>
 
             <button 
               className="pixel-btn" 
-              onClick={onOpenManagement} 
-              title="Gestão da Fazenda & Produção dos Talhões IDLE (Atalho: M)"
-              style={{ background: '#2563eb', borderColor: '#1d4ed8', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+              onClick={onOpenMarket} 
+              title="Mercado Global — Comércio entre Fazendeiros (Atalho: K)"
+              style={{ background: '#8d420f', borderColor: '#4a1f03', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
             >
-              🚜 Gestão
+              ⚖️ Mercado
+            </button>
+
+            <button
+              className="pixel-btn"
+              onClick={onOpenRanch}
+              title="Rancho Marlene — Comprar Animais & Gestão de Rebanho (Atalho: R)"
+              style={{ background: '#2980b9', borderColor: '#1a5276', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+            >
+              🐮 Rancho
+            </button>
+
+            <button
+              className="pixel-btn"
+              onClick={onOpenToolsShop}
+              title="Oficina do Ferreiro — Manutenção e Reparo de Ferramentas (Atalho: T)"
+              style={{ background: '#7f8c8d', borderColor: '#34495e', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+            >
+              🔨 Ferraria
             </button>
 
             <button 
               className="pixel-btn" 
-              onClick={onOpenMarket} 
-              title="Mercado Global — Comércio entre Fazendeiros (Atalho: K)"
-              style={{ background: '#7c3aed', borderColor: '#5b21b6', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+              onClick={onOpenManagement} 
+              title="Indústria & Processamento — Moinho, Queijeira e Forno (Atalho: M)"
+              style={{ background: '#d35400', borderColor: '#933d02', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
             >
-              🏪 Mercado
+              🏭 Indústria
             </button>
+
+            {onLogout && (
+              <button 
+                className="pixel-btn" 
+                onClick={onLogout} 
+                title="Sair da Conta de Fazendeiro"
+                style={{ background: '#9e2a2b', borderColor: '#591617', color: '#fff', padding: '6px 11px', fontSize: '11px' }}
+              >
+                👤 Sair
+              </button>
+            )}
 
             <button 
               className="pixel-btn" 

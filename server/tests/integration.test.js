@@ -1,94 +1,77 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert');
-const http = require('node:http');
-const express = require('express');
-const cors = require('cors');
-const apiRoutes = require('../src/routes/api');
-const farmEngine = require('../src/services/farmEngine');
+const authService = require('../src/services/authService');
+const farmService = require('../src/services/farmService');
+const durabilityService = require('../src/services/durabilityService');
+const animalService = require('../src/services/animalService');
+const npcShopService = require('../src/services/npcShopService');
+const marketEngine = require('../src/services/marketEngine');
+const ledgerService = require('../src/services/ledgerService');
+const { db } = require('../src/db/database');
 
-test('E2E API Integration: Complete Loop Test (till -> plant -> water -> grow -> harvest -> sell -> buy)', async (t) => {
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
-  app.use('/api', apiRoutes);
+test('Complete End-to-End Game Flow (Auth, Farming, Durability, Animal, Market & Ledger)', async (t) => {
+  const ts = Date.now();
+  const username = `farmer_${ts}`;
+  const email = `${username}@test.com`;
+  const password = 'FarmPassword2026!';
 
-  const server = http.createServer(app);
-  await new Promise((resolve) => server.listen(0, resolve));
-  const port = server.address().port;
-  const baseUrl = `http://127.0.0.1:${port}/api`;
+  // 1. User Registration
+  const auth = authService.register(username, email, password);
+  assert.ok(auth.token);
+  const userId = auth.user.id;
 
-  async function post(url, data) {
-    const res = await fetch(`${baseUrl}${url}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return { status: res.status, json: await res.json() };
-  }
+  // 2. Initial Farm State
+  const state = farmService.getFarmState(userId);
+  assert.equal(state.wallet.coins, 150);
+  assert.equal(state.tiles.length, 4);
+  assert.equal(state.animals.length, 1);
+  assert.equal(state.tools.length, 5);
 
-  async function get(url) {
-    const res = await fetch(`${baseUrl}${url}`);
-    return { status: res.status, json: await res.json() };
-  }
+  // 3. Plant Wheat
+  const emptyTile = state.tiles[0];
+  const plantResult = farmService.plantCrop(userId, emptyTile.id, 'seed_wheat');
+  const plantedTile = plantResult.tiles.find(t => t.id === emptyTile.id);
+  assert.equal(plantedTile.state, 'GROWING');
+  assert.equal(plantedTile.crop_id, 'wheat');
 
-  try {
-    // 1. Get initial state
-    const stateRes = await get('/state');
-    assert.strictEqual(stateRes.status, 200);
-    assert.strictEqual(stateRes.json.success, true);
-    assert.ok(stateRes.json.state.player);
+  // 4. Water Plot (consumes watering can durability)
+  const initialWaterTool = state.tools.find(t => t.tool_id === 'watering_can');
+  const waterResult = farmService.waterPlot(userId, emptyTile.id);
+  assert.equal(waterResult.tool.durability, initialWaterTool.durability - 1);
 
-    const initialMoney = stateRes.json.state.player.money;
+  // 5. Fast-forward growth in DB and Harvest
+  db.prepare("UPDATE farm_tiles SET planted_at = ?, harvest_ready_at = ?, state = 'READY' WHERE id = ?")
+    .run(Date.now() - 30000, Date.now() - 10000, emptyTile.id);
 
-    // 2. Till tile (6, 6)
-    farmEngine.getState().farm.tiles['6,6'].state = 'grass';
-    farmEngine.getState().farm.tiles['6,6'].crop = null;
+  const harvestResult = farmService.harvestCrop(userId, emptyTile.id);
+  assert.equal(harvestResult.harvestedItem, 'wheat');
+  assert.equal(harvestResult.yield, 2);
 
-    const tillRes = await post('/farm/till', { x: 6, y: 6 });
-    assert.strictEqual(tillRes.status, 200);
-    assert.strictEqual(tillRes.json.success, true);
-    assert.strictEqual(tillRes.json.tile.state, 'tilled');
+  // 6. Sell 1 wheat to NPC Shop
+  const sellResult = npcShopService.sellItem(userId, 'wheat', 1);
+  assert.equal(sellResult.revenue, 16);
 
-    // 3. Plant strawberry seed (Spring crop — reset season to ensure compatibility)
-    farmEngine.getState().time.season = 'Primavera';
-    farmEngine.getState().farmTiers = { unlockedTier: 2, licenses: ['license_tier_1', 'license_tier_2'] };
-    farmEngine.getState().toolsOwned = ['tool_hoe', 'tool_can', 'tool_scythe'];
-    farmEngine.addItemToInventory('seeds_strawberry', 1, 'normal');
-    const plantRes = await post('/farm/plant', { x: 6, y: 6, seedId: 'seeds_strawberry' });
-    assert.strictEqual(plantRes.status, 200);
-    assert.strictEqual(plantRes.json.success, true);
-    assert.strictEqual(plantRes.json.tile.crop.id, 'strawberry');
+  // 7. Buy 1 radish seed from NPC Shop
+  const buyResult = npcShopService.buySeed(userId, 'seed_radish', 1);
+  assert.equal(buyResult.cost, 12);
 
-    // 4. Water crop
-    const waterRes = await post('/farm/water', { x: 6, y: 6 });
-    assert.strictEqual(waterRes.status, 200);
-    assert.strictEqual(waterRes.json.tile.isWatered, true);
+  // 8. Repair Watering Can
+  const repairResult = durabilityService.repairTool(userId, 'watering_can');
+  assert.equal(repairResult.durability, initialWaterTool.max_durability);
 
-    // 5. Advance time
-    const advanceRes = await post('/dev/advance-time', { seconds: 300 });
-    assert.strictEqual(advanceRes.status, 200);
+  // 9. Feed starter chicken
+  const chicken = state.animals[0];
+  const feedResult = animalService.feedAnimal(userId, chicken.id);
+  assert.ok(feedResult.animal.fed_today === 1);
 
-    // 6. Harvest crop
-    const harvestRes = await post('/farm/harvest', { x: 6, y: 6 });
-    assert.strictEqual(harvestRes.status, 200);
-    assert.strictEqual(harvestRes.json.success, true);
-    assert.strictEqual(harvestRes.json.harvested.id, 'crop_strawberry');
+  // 10. Collect Egg
+  db.prepare('UPDATE animals SET last_collected_at = 0 WHERE id = ?').run(chicken.id);
+  const collectResult = animalService.collectProduce(userId, chicken.id);
+  assert.equal(collectResult.product, 'egg');
+  assert.equal(collectResult.animal.production_cycles, 1);
 
-    // 7. Sell harvest
-    const harvestSlot = harvestRes.json.inventory.find(i => i.id === 'crop_strawberry').slot;
-    const sellRes = await post('/shop/sell', { slotIndex: harvestSlot, quantity: 1 });
-    assert.strictEqual(sellRes.status, 200);
-    assert.strictEqual(sellRes.json.success, true);
-    assert.ok(sellRes.json.player.money > initialMoney);
-
-    // 8. Buy new seeds
-    const moneyBeforeBuy = sellRes.json.player.money;
-    const buyRes = await post('/shop/buy', { itemId: 'seeds_strawberry', quantity: 1 });
-    assert.strictEqual(buyRes.status, 200);
-    assert.strictEqual(buyRes.json.success, true);
-    assert.strictEqual(buyRes.json.player.money, moneyBeforeBuy - 25);
-
-  } finally {
-    server.close();
-  }
+  // 11. Ledger Integrity Check
+  const history = ledgerService.getLedgerHistory(userId, 20);
+  assert.ok(history.length >= 4, 'Ledger must contain at least 4 transaction history entries');
+  console.log(`✓ End-to-end integration verified. Total ledger transactions recorded: ${history.length}`);
 });

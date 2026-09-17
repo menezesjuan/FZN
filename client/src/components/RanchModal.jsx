@@ -1,54 +1,53 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
+import { api } from '../api/client';
 
-const CATALOG_ANIMALS = [
-  {
-    id: 'animal_chicken',
-    name: 'Galinha Caipira',
-    type: 'adult_chicken',
-    icon: '🐔',
-    price: 350,
-    requiredTier: 2,
-    maxHarvests: 20,
-    product: 'Ovo Caipira (produce_egg)',
-    description: 'Põe ovos diariamente se alimentada. Tem expectativa de vida produtiva de 20 posturas.'
-  },
-  {
-    id: 'animal_cow',
-    name: 'Vaca Holandesa',
-    type: 'female_cow',
-    icon: '🐄',
-    price: 1600,
-    requiredTier: 3,
-    maxHarvests: 30,
-    product: 'Leite Fresco (produce_milk)',
-    description: 'Produz leite diário de alta qualidade. Tem expectativa de vida produtiva de 30 ordenhas.'
-  }
-];
-
-export default function RanchModal({
-  isOpen,
-  onClose,
-  animals = [],
-  unlockedTier = 1,
-  playerMoney = 0,
-  onBuyAnimal
-}) {
-  const [tab, setTab] = useState('shop'); // 'shop' | 'herd'
-  const [customNames, setCustomNames] = useState({});
+export default function RanchModal({ isOpen, onClose, animals, onRefreshState, showToast }) {
+  const [activeTab, setActiveTab] = useState('herd'); // 'herd' or 'buy'
+  const [loading, setLoading] = useState(false);
+  const [newAnimalName, setNewAnimalName] = useState('');
 
   if (!isOpen) return null;
 
-  const handleNameChange = (id, name) => {
-    setCustomNames(prev => ({ ...prev, [id]: name }));
-  };
+  async function handleFeed(animalId) {
+    setLoading(true);
+    try {
+      const res = await api.feedAnimal(animalId);
+      showToast(res.message, 'success');
+      if (onRefreshState) onRefreshState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const handleBuy = (animal) => {
-    const name = customNames[animal.id] || (animal.id === 'animal_chicken' ? 'Cocó' : 'Mimosa');
-    onBuyAnimal(animal.id, name);
-    setCustomNames(prev => ({ ...prev, [animal.id]: '' }));
-  };
+  async function handleCollect(animalId) {
+    setLoading(true);
+    try {
+      const res = await api.collectProduce(animalId);
+      showToast(res.message, 'success');
+      if (onRefreshState) onRefreshState();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const liveAnimals = animals.filter(a => a.isAlive !== false);
+  async function handleBuy(animalType) {
+    setLoading(true);
+    try {
+      const res = await api.buyAnimal(animalType, newAnimalName);
+      showToast(res.message, 'success');
+      setNewAnimalName('');
+      if (onRefreshState) onRefreshState();
+      setActiveTab('herd');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div style={{
@@ -61,225 +60,235 @@ export default function RanchModal({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 60,
-      backdropFilter: 'blur(3px)'
+      zIndex: 9000,
+      fontFamily: '"Press Start 2P", monospace, sans-serif'
     }}>
-      <div className="pixel-panel" style={{ width: '680px', maxWidth: '96vw', padding: '22px' }}>
+      <div style={{
+        background: '#e9dac1',
+        border: '4px solid #5a381e',
+        borderRadius: '8px',
+        width: '680px',
+        maxWidth: '96vw',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
+        color: '#3d2514'
+      }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{
+          padding: '14px 18px',
+          background: '#613b1f',
+          color: '#f9f3e3',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTopLeftRadius: '4px',
+          borderTopRightRadius: '4px'
+        }}>
           <div>
-            <h2 className="font-pixel" style={{ fontSize: '15px', color: '#ffec40', textShadow: '1px 1px 0 #000' }}>
-              🐄 Rancho da Marlene
-            </h2>
-            <div style={{ fontSize: '12px', color: '#f7e6c4', marginTop: '4px' }}>
-              Saldo: <strong style={{ color: '#ffd700' }}>{playerMoney}G</strong> | Licença: <strong style={{ color: '#6ee7b7' }}>Tier {unlockedTier}</strong>
+            <span style={{ fontSize: '13px' }}>🐮 RANCHO & PECUÁRIA</span>
+            <div style={{ fontSize: '8px', color: '#ffde99', marginTop: '4px' }}>
+              Ciclo de vida, alimentação e produção animal finita (Game.md Seção 102-111)
             </div>
           </div>
-          <button className="pixel-btn" onClick={onClose} style={{ padding: '4px 12px' }}>
-            ✖ Fechar
+          <button
+            onClick={onClose}
+            style={{
+              background: '#9e2a2b',
+              color: '#fff',
+              border: '2px solid #591617',
+              borderRadius: '4px',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              fontSize: '10px'
+            }}
+          >
+            ✕
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        {/* Tab switcher */}
+        <div style={{ padding: '8px 16px', background: '#d8c29d', display: 'flex', gap: '8px' }}>
           <button
-            className="pixel-btn"
+            onClick={() => setActiveTab('herd')}
             style={{
-              flex: 1,
-              background: tab === 'shop' ? '#ffdf94' : '#c28d5d',
-              borderBottom: tab === 'shop' ? '3px solid #ffaa00' : undefined
+              padding: '6px 12px',
+              fontSize: '9px',
+              background: activeTab === 'herd' ? '#5a381e' : '#ba9d77',
+              color: activeTab === 'herd' ? '#fff' : '#2b1708',
+              border: '2px solid #4a2d16',
+              borderRadius: '4px',
+              cursor: 'pointer'
             }}
-            onClick={() => setTab('shop')}
           >
-            🏪 Comprar Animais
+            REBANHO ATUAL ({(animals || []).length})
           </button>
           <button
-            className="pixel-btn"
+            onClick={() => setActiveTab('buy')}
             style={{
-              flex: 1,
-              background: tab === 'herd' ? '#ffdf94' : '#c28d5d',
-              borderBottom: tab === 'herd' ? '3px solid #ffaa00' : undefined
+              padding: '6px 12px',
+              fontSize: '9px',
+              background: activeTab === 'buy' ? '#5a381e' : '#ba9d77',
+              color: activeTab === 'buy' ? '#fff' : '#2b1708',
+              border: '2px solid #4a2d16',
+              borderRadius: '4px',
+              cursor: 'pointer'
             }}
-            onClick={() => setTab('herd')}
           >
-            📋 Rebanho Atual ({liveAnimals.length} Vivos)
+            + ADQUIRIR ANIMAIS
           </button>
         </div>
 
-        {tab === 'shop' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{
-              background: 'rgba(0, 0, 0, 0.25)',
-              padding: '10px 14px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              color: '#e2e8f0',
-              borderLeft: '4px solid #38bdf8'
-            }}>
-              ⚠️ <strong>Ciclo Biológico:</strong> Cada animal possui uma quantidade limitada de coletas úteis (20 ovos ou 30 ordenhas). Ao término de sua vida produtiva, o animal encerra suas atividades e deve ser reposto.
-            </div>
+        {/* Body */}
+        <div style={{ padding: '16px', overflowY: 'auto', flex: 1, fontSize: '9px' }}>
+          {activeTab === 'herd' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(animals || []).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: '#777', fontStyle: 'italic' }}>
+                  Você ainda não possui animais. Compre uma galinha ou vaca na aba acima!
+                </div>
+              ) : (
+                animals.map(animal => {
+                  const isEndOfLife = animal.status === 'END_OF_LIFE';
+                  const remainingCycles = Math.max(0, animal.max_production_cycles - animal.production_cycles);
 
-            {CATALOG_ANIMALS.map(animal => {
-              const tierOk = unlockedTier >= animal.requiredTier;
-              const canAfford = playerMoney >= animal.price;
-              const canBuy = tierOk && canAfford;
-
-              return (
-                <div
-                  key={animal.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '14px 16px',
-                    background: 'rgba(0,0,0,0.25)',
-                    border: '1px solid #5c3e1e',
-                    borderRadius: '8px',
-                    opacity: tierOk ? 1 : 0.75
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{
-                      fontSize: '32px',
-                      width: '52px',
-                      height: '52px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'rgba(0,0,0,0.35)',
-                      borderRadius: '8px',
-                      border: '1px solid #78522b'
-                    }}>
-                      {animal.icon}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="font-pixel" style={{ fontSize: '13px', color: '#ffea75' }}>
-                          {animal.name}
-                        </span>
-                        <span style={{
-                          fontSize: '10px',
-                          background: tierOk ? '#065f46' : '#991b1b',
-                          color: '#fff',
-                          padding: '1px 6px',
-                          borderRadius: '4px'
-                        }}>
-                          Requer Tier {animal.requiredTier}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          ⏱️ {animal.maxHarvests} Coletas
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '3px', maxWidth: '350px' }}>
-                        {animal.description}
-                      </div>
-                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <input
-                          type="text"
-                          placeholder="Nome do animal..."
-                          value={customNames[animal.id] || ''}
-                          onChange={(e) => handleNameChange(animal.id, e.target.value)}
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: '11px',
-                            borderRadius: '4px',
-                            border: '1px solid #64748b',
-                            background: '#1e293b',
-                            color: '#fff',
-                            width: '160px'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right', minWidth: '120px' }}>
-                    <div style={{ fontSize: '13px', color: '#ffd700', fontWeight: 'bold', marginBottom: '6px' }}>
-                      {animal.price}G
-                    </div>
-                    <button
-                      className="pixel-btn"
-                      disabled={!canBuy}
-                      onClick={() => handleBuy(animal)}
+                  return (
+                    <div
+                      key={animal.id}
                       style={{
-                        padding: '6px 12px',
-                        fontSize: '11px',
-                        background: canBuy ? '#15803d' : '#4b5563',
-                        borderColor: canBuy ? '#166534' : '#374151',
-                        color: canBuy ? '#fff' : '#9ca3af',
-                        cursor: canBuy ? 'pointer' : 'not-allowed'
+                        background: isEndOfLife ? '#f5ebeb' : '#fffcf7',
+                        border: '2px solid #8d5b35',
+                        borderRadius: '4px',
+                        padding: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
                       }}
                     >
-                      {!tierOk ? 'Tier Bloqueado' : (!canAfford ? 'Sem Saldo' : 'Adquirir')}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
-            {animals.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#cbd5e1', padding: '30px' }}>
-                Nenhum animal na fazenda ainda. Visite a aba de compras para adquirir galinhas ou vacas!
-              </div>
-            ) : (
-              animals.map(a => {
-                const isHen = a.type.includes('chicken');
-                const maxH = a.maxHarvests || (isHen ? 20 : 30);
-                const rem = a.harvestsRemaining !== undefined ? a.harvestsRemaining : maxH;
-                const isAlive = a.isAlive !== false && rem > 0;
-                const percent = Math.max(0, Math.min(100, Math.round((rem / maxH) * 100)));
-
-                return (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      background: isAlive ? 'rgba(0,0,0,0.25)' : 'rgba(153, 27, 27, 0.15)',
-                      border: isAlive ? '1px solid #4a3319' : '1px solid #7f1d1d',
-                      borderRadius: '6px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '24px' }}>{isHen ? '🐔' : '🐄'}</span>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <strong style={{ color: '#fff', fontSize: '13px' }}>{a.name}</strong>
-                          <span style={{ fontSize: '10px', color: '#94a3b8' }}>
-                            ({isHen ? 'Galinha' : 'Vaca'})
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
+                          {animal.animal_type === 'cow' ? '🐄' : '🐔'} {animal.name} ({animal.animal_type === 'cow' ? 'Vaca' : 'Galinha'})
+                        </div>
+                        <div style={{ fontSize: '8px', color: '#555', lineHeight: '1.5' }}>
+                          Saúde: <strong>{animal.health}%</strong> • Alimentado hoje: <strong>{animal.fed_today ? 'Sim ✅' : 'Não ❌'}</strong>
+                          <br />
+                          Produções: <strong>{animal.production_cycles} / {animal.max_production_cycles}</strong> (Restam: {remainingCycles})
+                          <br />
+                          Status: <span style={{ color: isEndOfLife ? '#a31c1c' : '#1e7e34', fontWeight: 'bold' }}>
+                            {isEndOfLife ? 'FIM DE VIDA PRODUTIVA (APOSENTADO)' : 'ATIVO & PRODUTIVO'}
                           </span>
-                          {!isAlive && (
-                            <span style={{ fontSize: '10px', background: '#7f1d1d', color: '#fca5a5', padding: '1px 5px', borderRadius: '3px' }}>
-                              ✝ Falecida
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
-                          Coletas restantes: <strong>{rem}/{maxH}</strong>
                         </div>
                       </div>
-                    </div>
 
-                    <div style={{ width: '130px', textAlign: 'right' }}>
-                      <div style={{ width: '100%', height: '8px', background: '#334155', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{
-                          width: percent + '%',
-                          height: '100%',
-                          background: percent > 40 ? '#22c55e' : (percent > 15 ? '#f59e0b' : '#ef4444')
-                        }} />
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {!isEndOfLife && (
+                          <>
+                            <button
+                              disabled={loading || animal.fed_today}
+                              onClick={() => handleFeed(animal.id)}
+                              style={{
+                                padding: '8px 10px',
+                                background: animal.fed_today ? '#aaa' : '#e67e22',
+                                color: '#fff',
+                                border: '1px solid #000',
+                                borderRadius: '4px',
+                                cursor: animal.fed_today || loading ? 'not-allowed' : 'pointer',
+                                fontSize: '8px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              🌾 Alimentar
+                            </button>
+                            <button
+                              disabled={loading}
+                              onClick={() => handleCollect(animal.id)}
+                              style={{
+                                padding: '8px 10px',
+                                background: '#27ae60',
+                                color: '#fff',
+                                border: '1px solid #000',
+                                borderRadius: '4px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                fontSize: '8px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              🧺 Coletar
+                            </button>
+                          </>
+                        )}
                       </div>
-                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>Vida útil: {percent}%</span>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {activeTab === 'buy' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              {/* Buy Chicken */}
+              <div style={{ background: '#fff', border: '2px solid #8d5b35', borderRadius: '4px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>🐔 Galinha Caipira</div>
+                <div style={{ fontSize: '8px', color: '#555', lineHeight: '1.6', marginBottom: '10px' }}>
+                  Preço: <strong>120G</strong><br />
+                  Alimentação diária: <strong>4G ou 1x Trigo</strong><br />
+                  Vida útil: <strong>180 dias</strong><br />
+                  Teto produtivo: <strong>120 ovos</strong><br />
+                  Exige: <strong>Cesta de Ovos</strong>
+                </div>
+                <button
+                  disabled={loading}
+                  onClick={() => handleBuy('chicken')}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#4a8505',
+                    color: '#fff',
+                    border: '2px solid #2e5403',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '9px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Comprar por 120G
+                </button>
+              </div>
+
+              {/* Buy Cow */}
+              <div style={{ background: '#fff', border: '2px solid #8d5b35', borderRadius: '4px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>🐄 Vaca Holandesa</div>
+                <div style={{ fontSize: '8px', color: '#555', lineHeight: '1.6', marginBottom: '10px' }}>
+                  Preço: <strong>450G</strong><br />
+                  Alimentação diária: <strong>10G ou 1x Trigo</strong><br />
+                  Vida útil: <strong>360 dias</strong><br />
+                  Teto produtivo: <strong>250 coletas</strong><br />
+                  Exige: <strong>Coletor de Leite</strong>
+                </div>
+                <button
+                  disabled={loading}
+                  onClick={() => handleBuy('cow')}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#4a8505',
+                    color: '#fff',
+                    border: '2px solid #2e5403',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '9px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Comprar por 450G
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
